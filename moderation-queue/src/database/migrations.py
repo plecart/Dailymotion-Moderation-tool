@@ -85,13 +85,18 @@ async def _get_applied_migrations(conn: asyncpg.Connection) -> set[str]:
     return {row["name"] for row in rows}
 
 
+async def _read_migration_file(migration_file: Path) -> str:
+    """Read a migration file's contents without blocking the event loop."""
+    return await asyncio.to_thread(migration_file.read_text, encoding="utf-8")
+
+
 async def _apply_migration(
     conn: asyncpg.Connection,
     migration_file: Path,
     migration_name: str,
 ) -> None:
     """Execute a single migration file and record it in _migrations."""
-    sql = migration_file.read_text(encoding="utf-8")
+    sql = await _read_migration_file(migration_file)
     async with conn.transaction():
         await conn.execute(sql)
         await conn.execute(
