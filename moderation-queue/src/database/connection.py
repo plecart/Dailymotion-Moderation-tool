@@ -23,6 +23,11 @@ def _get_lock(loop: asyncio.AbstractEventLoop) -> asyncio.Lock:
     return _locks[loop]
 
 
+def _clear_lock_for_loop(loop: asyncio.AbstractEventLoop) -> None:
+    """Remove the lock entry for the given loop so it can be garbage-collected."""
+    _locks.pop(loop, None)
+
+
 async def create_pool() -> asyncpg.Pool:
     """Create and return the database connection pool. Safe to call concurrently and across event loops (e.g. pytest)."""
     loop = asyncio.get_running_loop()
@@ -46,6 +51,9 @@ async def create_pool() -> asyncpg.Pool:
 async def close_pool() -> None:
     """Close the database connection pool for the current event loop. Safe to call concurrently with create_pool."""
     loop = asyncio.get_running_loop()
+    if loop not in _pools:
+        _clear_lock_for_loop(loop)
+        return
     lock = _get_lock(loop)
     async with lock:
         if loop in _pools:
@@ -54,6 +62,8 @@ async def close_pool() -> None:
             del _pools[loop]
             del _locks[loop]
             logger.info("Database connection pool closed")
+        else:
+            _clear_lock_for_loop(loop)
 
 
 def get_pool() -> asyncpg.Pool:
