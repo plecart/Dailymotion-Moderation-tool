@@ -3,8 +3,8 @@
 import os
 from typing import AsyncGenerator
 
-import pytest_asyncio
 import asyncpg
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 # Default test DB URL; override via env. Must be set before Settings() is loaded.
