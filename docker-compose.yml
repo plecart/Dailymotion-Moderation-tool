@@ -33,8 +33,6 @@ services:
       - "8001:8000"
     environment:
       DATABASE_URL: postgresql://moderation:moderation_secret@postgres:5432/moderation_db
-      APP_HOST: 0.0.0.0
-      APP_PORT: "8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,8 +49,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       DAILYMOTION_API_BASE_URL: https://api.dailymotion.com
       CACHE_TTL_SECONDS: "300"
-      APP_HOST: 0.0.0.0
-      APP_PORT: "8000"
     depends_on:
       redis:
         condition: service_healthy
