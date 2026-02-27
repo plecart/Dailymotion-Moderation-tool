@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     database_url: str
     # PostgreSQL advisory lock key for migration runner (must fit int64). Override in .env if multiple apps share the same DB.
     migration_lock_key: int = 0x646D5F6D69677261
+    # Max seconds to wait for the migration lock before failing startup (avoids indefinite hang).
+    migration_lock_timeout_seconds: int = 60
 
     model_config = {"env_file": ".env"}
 
