@@ -1,8 +1,8 @@
 """Tests for database connection and migrations."""
 
+import asyncpg
 import pytest
 import pytest_asyncio
-import asyncpg
 
 from src.database.connection import create_pool, close_pool, get_pool, get_connection
 from src.database.migrations import run_migrations
@@ -12,12 +12,12 @@ _MIGRATION_TABLES_DROP_ORDER = ("moderation_logs", "videos", "_migrations")
 
 
 async def _table_exists(conn: asyncpg.Connection, table_name: str) -> bool:
-    """Return True if a table exists in the database."""
+    """Return True if a table exists in the public schema."""
     return await conn.fetchval(
         """
         SELECT EXISTS (
             SELECT FROM information_schema.tables
-            WHERE table_name = $1
+            WHERE table_schema = 'public' AND table_name = $1
         )
         """,
         table_name,
