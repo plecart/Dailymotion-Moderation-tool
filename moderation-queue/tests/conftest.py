@@ -14,7 +14,8 @@ DEFAULT_TEST_DATABASE_URL = (
 )
 os.environ.setdefault("DATABASE_URL", DEFAULT_TEST_DATABASE_URL)
 
-_ALLOWED_TEST_HOSTS = ("localhost", "127.0.0.1")
+# Local + Docker Compose service name (default .env uses postgres:5432).
+_ALLOWED_TEST_HOSTS = ("localhost", "127.0.0.1", "postgres")
 
 
 def _assert_test_database_url() -> None:
@@ -24,7 +25,7 @@ def _assert_test_database_url() -> None:
     if host not in _ALLOWED_TEST_HOSTS:
         raise RuntimeError(
             f"Refusing to run tests: DATABASE_URL host is {host!r}, not in {_ALLOWED_TEST_HOSTS}. "
-            "Point DATABASE_URL to localhost/127.0.0.1 to run tests."
+            "Use localhost, 127.0.0.1, or postgres (Compose) for tests."
         )
 
 
