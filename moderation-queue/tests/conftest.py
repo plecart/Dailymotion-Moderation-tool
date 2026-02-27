@@ -3,30 +3,29 @@
 import os
 from typing import AsyncGenerator
 
-# Default DATABASE_URL for tests (localhost when Postgres runs via Docker Compose).
-# Override with env var if needed.
+import pytest_asyncio
+import asyncpg
+from httpx import ASGITransport, AsyncClient
+
+# Default test DB URL; override via env. Must be set before Settings() is loaded.
 DEFAULT_TEST_DATABASE_URL = (
     "postgresql://moderation:moderation_secret@localhost:5432/moderation_db"
 )
 os.environ.setdefault("DATABASE_URL", DEFAULT_TEST_DATABASE_URL)
 
-import pytest_asyncio
-import asyncpg
-from httpx import ASGITransport, AsyncClient
-
-from src.config import settings
-
 
 @pytest_asyncio.fixture(scope="function")
 async def db_connection() -> AsyncGenerator[asyncpg.Connection, None]:
     """Provide a database connection for tests."""
+    from src.config import settings
+
     conn = await asyncpg.connect(dsn=settings.database_url)
     yield conn
     await conn.close()
 
 
 @pytest_asyncio.fixture(scope="function")
-async def clean_db(db_connection: asyncpg.Connection):
+async def clean_db(db_connection: asyncpg.Connection) -> AsyncGenerator[None, None]:
     """Clean database tables before each test."""
     await db_connection.execute("DELETE FROM moderation_logs")
     await db_connection.execute("DELETE FROM videos")
