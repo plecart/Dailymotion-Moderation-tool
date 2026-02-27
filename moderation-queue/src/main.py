@@ -14,11 +14,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Manage app lifespan: DB pool creation, migrations, and cleanup."""
     logger.info("Moderation Queue API starting")
-    await create_pool()
-    await run_migrations()
-    yield
-    logger.info("Moderation Queue API shutting down")
-    await close_pool()
+    try:
+        await create_pool()
+        await run_migrations()
+        yield
+    finally:
+        logger.info("Moderation Queue API shutting down")
+        await close_pool()
 
 
 app = FastAPI(
