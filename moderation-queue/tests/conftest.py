@@ -15,8 +15,22 @@ os.environ.setdefault("DATABASE_URL", DEFAULT_TEST_DATABASE_URL)
 
 
 @pytest_asyncio.fixture(scope="function")
-async def db_connection() -> AsyncGenerator[asyncpg.Connection, None]:
-    """Provide a database connection for tests."""
+async def ensure_migrations() -> AsyncGenerator[None, None]:
+    """Create pool and run migrations so tables exist. Required by db_connection, clean_db, and client."""
+    from src.database.connection import create_pool, close_pool
+    from src.database.migrations import run_migrations
+
+    await create_pool()
+    await run_migrations()
+    yield
+    await close_pool()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def db_connection(
+    ensure_migrations: None,
+) -> AsyncGenerator[asyncpg.Connection, None]:
+    """Provide a database connection for tests. Migrations are applied first."""
     from src.config import settings
 
     conn = await asyncpg.connect(dsn=settings.database_url)
@@ -33,19 +47,14 @@ async def clean_db(db_connection: asyncpg.Connection) -> AsyncGenerator[None, No
 
 
 @pytest_asyncio.fixture(scope="function")
-async def client() -> AsyncGenerator[AsyncClient, None]:
-    """Provide an async HTTP client for testing FastAPI endpoints."""
+async def client(
+    ensure_migrations: None,
+) -> AsyncGenerator[AsyncClient, None]:
+    """Provide an async HTTP client for testing FastAPI endpoints. Pool and migrations are handled by ensure_migrations."""
     from src.main import app
-    from src.database.connection import create_pool, close_pool
-    from src.database.migrations import run_migrations
-
-    await create_pool()
-    await run_migrations()
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test"
     ) as ac:
         yield ac
-
-    await close_pool()
