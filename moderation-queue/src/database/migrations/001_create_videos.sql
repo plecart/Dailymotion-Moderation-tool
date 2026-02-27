@@ -1,0 +1,17 @@
+-- Migration: Create videos table
+-- Stores videos in the moderation queue with their current status
+
+CREATE TABLE IF NOT EXISTS videos (
+    id SERIAL PRIMARY KEY,
+    video_id BIGINT UNIQUE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    assigned_to VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT valid_status CHECK (status IN ('pending', 'spam', 'not spam'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);
+CREATE INDEX IF NOT EXISTS idx_videos_assigned_to ON videos(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos(created_at);
