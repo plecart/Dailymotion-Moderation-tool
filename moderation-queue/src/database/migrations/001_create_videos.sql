@@ -17,7 +17,7 @@ CREATE INDEX IF NOT EXISTS idx_videos_assigned_to ON videos(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos(created_at);
 
 -- Keep updated_at in sync on UPDATE (DEFAULT applies only on INSERT)
-CREATE OR REPLACE FUNCTION set_updated_at()
+CREATE OR REPLACE FUNCTION videos_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
@@ -29,4 +29,4 @@ DROP TRIGGER IF EXISTS videos_updated_at ON videos;
 CREATE TRIGGER videos_updated_at
     BEFORE UPDATE ON videos
     FOR EACH ROW
-    EXECUTE FUNCTION set_updated_at();
+    EXECUTE FUNCTION videos_set_updated_at();
