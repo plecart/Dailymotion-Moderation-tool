@@ -1,5 +1,6 @@
 """SQL migration runner for numbered .sql files."""
 
+import asyncio
 import logging
 from pathlib import Path
 
@@ -13,6 +14,10 @@ logger = logging.getLogger(__name__)
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
+class MigrationLockTimeoutError(RuntimeError):
+    """Raised when the migration advisory lock cannot be acquired within the configured timeout."""
+
+
 async def run_migrations() -> None:
     """Execute all pending SQL migrations in order.
 
@@ -20,10 +25,11 @@ async def run_migrations() -> None:
     A migrations tracking table records which migrations have been applied.
     Uses a single connection for the whole run.
     Holds a PostgreSQL advisory lock for the duration so only one runner applies migrations at a time.
+    Fails with MigrationLockTimeoutError if the lock cannot be acquired within migration_lock_timeout_seconds.
     """
     async with get_connection() as conn:
         await _ensure_migrations_table(conn)
-        await conn.execute("SELECT pg_advisory_lock($1)", settings.migration_lock_key)
+        await _acquire_migration_lock(conn)
         try:
             applied = await _get_applied_migrations(conn)
             migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
@@ -40,6 +46,26 @@ async def run_migrations() -> None:
                 logger.info("Migration %s applied successfully", migration_name)
         finally:
             await conn.execute("SELECT pg_advisory_unlock($1)", settings.migration_lock_key)
+
+
+async def _acquire_migration_lock(conn: asyncpg.Connection) -> None:
+    """Acquire the migration advisory lock with retries; raise MigrationLockTimeoutError if timeout."""
+    loop = asyncio.get_running_loop()
+    timeout_seconds = settings.migration_lock_timeout_seconds
+    deadline = loop.time() + timeout_seconds
+    while True:
+        acquired = await conn.fetchval(
+            "SELECT pg_try_advisory_lock($1)",
+            settings.migration_lock_key,
+        )
+        if acquired:
+            return
+        if loop.time() >= deadline:
+            raise MigrationLockTimeoutError(
+                f"Could not acquire migration lock within {timeout_seconds}s. "
+                "Another process may be running or stuck on migrations."
+            )
+        await asyncio.sleep(1)
 
 
 async def _ensure_migrations_table(conn: asyncpg.Connection) -> None:
