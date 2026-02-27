@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS moderation_logs (
     moderator VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    CONSTRAINT fk_video FOREIGN KEY (video_id) REFERENCES videos(video_id) ON DELETE CASCADE,
+    CONSTRAINT moderation_logs_video_id_fkey FOREIGN KEY (video_id) REFERENCES videos(video_id) ON DELETE CASCADE,
     CONSTRAINT valid_log_status CHECK (status IN ('pending', 'spam', 'not spam'))
 );
 
