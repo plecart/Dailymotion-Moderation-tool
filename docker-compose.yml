@@ -38,6 +38,12 @@ services:
         condition: service_healthy
     volumes:
       - ./moderation-queue/src:/app/src
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   dailymotion-api-proxy:
     build:
@@ -54,6 +60,12 @@ services:
         condition: service_healthy
     volumes:
       - ./dailymotion-api-proxy/src:/app/src
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 volumes:
   postgres_data:
