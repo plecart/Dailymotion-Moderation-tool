@@ -1,14 +1,21 @@
 """Tests for database connection and migrations."""
 
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
 import asyncpg
 import pytest
 import pytest_asyncio
 
+from src.config import settings
 from src.database.connection import create_pool, close_pool, get_pool, get_connection
-from src.database.migrations import run_migrations
+from src.database.migrations import MigrationLockTimeoutError, run_migrations
 
 # Tables created by migrations; drop in this order (FK: moderation_logs -> videos).
 _MIGRATION_TABLES_DROP_ORDER = ("moderation_logs", "videos", "_migrations")
+
+# Short timeout for lock timeout test (avoids long wait).
+_MIGRATION_LOCK_TEST_TIMEOUT_SECONDS = 1
 
 
 async def _table_exists(conn: asyncpg.Connection, table_name: str) -> bool:
@@ -22,6 +29,24 @@ async def _table_exists(conn: asyncpg.Connection, table_name: str) -> bool:
         """,
         table_name,
     )
+
+
+@asynccontextmanager
+async def _hold_migration_lock() -> AsyncGenerator[None, None]:
+    """Hold the migration advisory lock for the duration. Uses a dedicated connection (not from pool)."""
+    conn = await asyncpg.connect(settings.database_url)
+    try:
+        await conn.execute(
+            "SELECT pg_advisory_lock($1)",
+            settings.migration_lock_key,
+        )
+        yield
+    finally:
+        await conn.execute(
+            "SELECT pg_advisory_unlock($1)",
+            settings.migration_lock_key,
+        )
+        await conn.close()
 
 
 class TestDatabaseConnection:
@@ -113,3 +138,14 @@ class TestMigrations:
 
         async with get_connection() as conn:
             assert await _table_exists(conn, "_migrations") is True
+
+    async def test_run_migrations_raises_when_lock_timeout(self, monkeypatch):
+        """run_migrations() raises MigrationLockTimeoutError when lock is held and timeout is exceeded."""
+        monkeypatch.setattr(
+            "src.database.migrations.settings.migration_lock_timeout_seconds",
+            _MIGRATION_LOCK_TEST_TIMEOUT_SECONDS,
+        )
+        async with _hold_migration_lock():
+            with pytest.raises(MigrationLockTimeoutError) as exc_info:
+                await run_migrations()
+        assert "Could not acquire migration lock" in str(exc_info.value)
