@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: moderation
+      POSTGRES_PASSWORD: moderation_secret
+      POSTGRES_DB: moderation_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moderation -d moderation_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  moderation-queue:
+    build:
+      context: ./moderation-queue
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql://moderation:moderation_secret@postgres:5432/moderation_db
+      APP_HOST: 0.0.0.0
+      APP_PORT: "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./moderation-queue/src:/app/src
+
+  dailymotion-api-proxy:
+    build:
+      context: ./dailymotion-api-proxy
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DAILYMOTION_API_BASE_URL: https://api.dailymotion.com
+      CACHE_TTL_SECONDS: "300"
+      APP_HOST: 0.0.0.0
+      APP_PORT: "8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./dailymotion-api-proxy/src:/app/src
+
+volumes:
+  postgres_data:
