@@ -7,6 +7,9 @@ import asyncpg
 from src.database.connection import create_pool, close_pool, get_pool, get_connection
 from src.database.migrations import run_migrations
 
+# Tables created by migrations; drop in this order (FK: moderation_logs -> videos).
+_MIGRATION_TABLES_DROP_ORDER = ("moderation_logs", "videos", "_migrations")
+
 
 async def _table_exists(conn: asyncpg.Connection, table_name: str) -> bool:
     """Return True if a table exists in the database."""
@@ -77,6 +80,14 @@ class TestMigrations:
         await create_pool()
         yield
         await close_pool()
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def reset_migration_tables(self, setup_pool):
+        """Drop migration-related tables before each test so run_migrations() runs from scratch."""
+        async with get_connection() as conn:
+            for table in _MIGRATION_TABLES_DROP_ORDER:
+                await conn.execute(f"DROP TABLE IF EXISTS {table}")
+        yield
 
     async def test_run_migrations_creates_tables(self):
         """Test that migrations create the expected tables."""
