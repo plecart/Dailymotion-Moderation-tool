@@ -8,10 +8,24 @@ CREATE TABLE IF NOT EXISTS videos (
     assigned_to VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
     CONSTRAINT valid_status CHECK (status IN ('pending', 'spam', 'not spam'))
 );
 
+-- Indexes for filtering and ordering
 CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);
 CREATE INDEX IF NOT EXISTS idx_videos_assigned_to ON videos(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos(created_at);
+
+-- Keep updated_at in sync on UPDATE (DEFAULT applies only on INSERT)
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER videos_updated_at
+    BEFORE UPDATE ON videos
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
