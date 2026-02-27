@@ -1,0 +1,68 @@
+x-app-healthcheck: &app-healthcheck
+  test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
+  interval: 5s
+  timeout: 5s
+  retries: 5
+  start_period: 5s
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  moderation-queue:
+    build:
+      context: ./moderation-queue
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./moderation-queue/src:/app/src
+    healthcheck: *app-healthcheck
+
+  dailymotion-api-proxy:
+    build:
+      context: ./dailymotion-api-proxy
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      REDIS_URL: ${REDIS_URL}
+      DAILYMOTION_API_BASE_URL: ${DAILYMOTION_API_BASE_URL}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./dailymotion-api-proxy/src:/app/src
+    healthcheck: *app-healthcheck
+
+volumes:
+  postgres_data:
