@@ -92,7 +92,7 @@ class TestDatabaseConnection:
         await create_pool()
         await close_pool()
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError, match="Database pool not initialized"):
             get_pool()
 
 

@@ -18,10 +18,14 @@ os.environ.setdefault("DATABASE_URL", DEFAULT_TEST_DATABASE_URL)
 _ALLOWED_TEST_HOSTS = ("localhost", "127.0.0.1", "postgres")
 
 
+def _get_test_database_url() -> str:
+    """Return the current DATABASE_URL (env or default). Used for safety check and fixtures."""
+    return os.environ.get("DATABASE_URL", DEFAULT_TEST_DATABASE_URL)
+
+
 def _assert_test_database_url() -> None:
     """Raise if DATABASE_URL does not look like a local test DB (avoids wiping real data)."""
-    url = os.environ.get("DATABASE_URL", DEFAULT_TEST_DATABASE_URL)
-    host = urlparse(url).hostname
+    host = urlparse(_get_test_database_url()).hostname
     if host not in _ALLOWED_TEST_HOSTS:
         raise RuntimeError(
             f"Refusing to run tests: DATABASE_URL host is {host!r}, not in {_ALLOWED_TEST_HOSTS}. "
@@ -49,9 +53,7 @@ async def db_connection(
     ensure_migrations: None,
 ) -> AsyncGenerator[asyncpg.Connection, None]:
     """Provide a database connection for tests. Migrations are applied first."""
-    from src.config import settings
-
-    conn = await asyncpg.connect(dsn=settings.database_url)
+    conn = await asyncpg.connect(dsn=_get_test_database_url())
     yield conn
     await conn.close()
 
