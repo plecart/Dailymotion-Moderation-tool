@@ -1,7 +1,7 @@
 -- Migration: Create videos table
 -- Stores videos in the moderation queue with their current status
 
-CREATE TABLE IF NOT EXISTS videos (
+CREATE TABLE videos (
     id SERIAL PRIMARY KEY,
     video_id BIGINT UNIQUE NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS videos (
 );
 
 -- Indexes for filtering and ordering
-CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);
-CREATE INDEX IF NOT EXISTS idx_videos_assigned_to ON videos(assigned_to);
-CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos(created_at);
+CREATE INDEX idx_videos_status ON videos(status);
+CREATE INDEX idx_videos_assigned_to ON videos(assigned_to);
+CREATE INDEX idx_videos_created_at ON videos(created_at);
 
 -- Keep updated_at in sync on UPDATE (DEFAULT applies only on INSERT)
 CREATE OR REPLACE FUNCTION videos_set_updated_at()
