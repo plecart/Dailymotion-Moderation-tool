@@ -25,6 +25,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS videos_updated_at ON videos;
 CREATE TRIGGER videos_updated_at
     BEFORE UPDATE ON videos
     FOR EACH ROW
