@@ -40,35 +40,47 @@ def _get_cache_key(video_id: int | str) -> str:
     return f"{CACHE_KEY_PREFIX}{video_id}"
 
 
-def _handle_http_status_error(error: httpx.HTTPStatusError) -> DailymotionAPIError:
+def _handle_http_status_error(error: httpx.HTTPStatusError, requested_video_id: int) -> DailymotionAPIError:
     """Convert an HTTP status error to DailymotionAPIError.
 
     Args:
         error: HTTP status error from upstream API
+        requested_video_id: Video ID originally requested by client
 
     Returns:
-        DailymotionAPIError with status code, URL, and response body
+        DailymotionAPIError with status code, URL, response body, and requested video_id
     """
-    logger.error("Dailymotion API HTTP error: %s", error)
+    logger.error(
+        "Dailymotion API HTTP error for requested video_id %d: %s",
+        requested_video_id,
+        error,
+    )
     body = error.response.text[:_MAX_ERROR_BODY_LENGTH] if error.response.text else "no body"
     return DailymotionAPIError(
         f"Dailymotion API returned HTTP {error.response.status_code} "
-        f"for {error.request.url}: {body}",
+        f"for {error.request.url} (requested video_id: {requested_video_id}): {body}",
         status_code=error.response.status_code,
     )
 
 
-def _handle_request_error(error: httpx.RequestError) -> DailymotionAPIError:
+def _handle_request_error(error: httpx.RequestError, requested_video_id: int) -> DailymotionAPIError:
     """Convert a network/transport error to DailymotionAPIError.
 
     Args:
         error: Request error (timeout, DNS, connection refused, etc.)
+        requested_video_id: Video ID originally requested by client
 
     Returns:
-        DailymotionAPIError with transport error details
+        DailymotionAPIError with transport error details and requested video_id
     """
-    logger.error("Dailymotion API request failed: %s", error)
-    return DailymotionAPIError(f"Dailymotion API request failed: {error}")
+    logger.error(
+        "Dailymotion API request failed for requested video_id %d: %s",
+        requested_video_id,
+        error,
+    )
+    return DailymotionAPIError(
+        f"Dailymotion API request failed (requested video_id: {requested_video_id}): {error}"
+    )
 
 
 def _handle_client_error(error: RuntimeError) -> DailymotionAPIError:
@@ -129,9 +141,9 @@ async def get_video_info(video_id: int) -> dict:
     try:
         data = await fetch_video_info(fixed_video_id)
     except httpx.HTTPStatusError as e:
-        raise _handle_http_status_error(e) from e
+        raise _handle_http_status_error(e, video_id) from e
     except httpx.RequestError as e:
-        raise _handle_request_error(e) from e
+        raise _handle_request_error(e, video_id) from e
     except RuntimeError as e:
         raise _handle_client_error(e) from e
 
