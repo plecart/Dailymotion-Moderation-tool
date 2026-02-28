@@ -61,7 +61,7 @@ async def get_logs_by_video_id(
         SELECT id, video_id, status, moderator, created_at
         FROM moderation_logs
         WHERE video_id = $1
-        ORDER BY created_at ASC
+        ORDER BY created_at ASC, id ASC
         """,
         video_id,
     )
