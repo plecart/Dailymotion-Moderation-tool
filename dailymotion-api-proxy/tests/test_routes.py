@@ -75,7 +75,8 @@ class TestGetVideoInfoEndpoint:
         error = httpx.HTTPStatusError(
             "Server Error", request=MagicMock(), response=mock_response
         )
-        mock_http_client.get = AsyncMock(side_effect=error)
+        mock_response.raise_for_status = MagicMock(side_effect=error)
+        mock_http_client.get = AsyncMock(return_value=mock_response)
 
         response = await client.get("/get_video_info/123")
 
