@@ -1,4 +1,5 @@
 """Moderation Queue API: FastAPI app and lifespan."""
+
 import logging
 from contextlib import asynccontextmanager
 

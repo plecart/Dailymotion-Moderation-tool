@@ -37,7 +37,9 @@ async def run_migrations() -> None:
             for migration_file in migration_files:
                 migration_name = migration_file.name
                 if migration_name in applied:
-                    logger.debug("Migration %s already applied, skipping", migration_name)
+                    logger.debug(
+                        "Migration %s already applied, skipping", migration_name
+                    )
                     continue
 
                 logger.info("Applying migration: %s", migration_name)
@@ -45,7 +47,9 @@ async def run_migrations() -> None:
                 applied.add(migration_name)
                 logger.info("Migration %s applied successfully", migration_name)
         finally:
-            await conn.execute("SELECT pg_advisory_unlock($1)", settings.migration_lock_key)
+            await conn.execute(
+                "SELECT pg_advisory_unlock($1)", settings.migration_lock_key
+            )
 
 
 async def _acquire_migration_lock(conn: asyncpg.Connection) -> None:
