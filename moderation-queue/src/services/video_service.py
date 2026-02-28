@@ -198,6 +198,7 @@ async def _handle_concurrent_flag_failure(
     Raises:
         VideoNotAssignedError: If video is not assigned to this moderator
         VideoAlreadyModeratedError: If video has already been moderated
+        RuntimeError: If update failed despite all conditions being met (unexpected state)
     """
     current_video = await video_repository.get_video_by_video_id(conn, video_id)
     
@@ -207,12 +208,17 @@ async def _handle_concurrent_flag_failure(
     )
     
     # If we reach here, conditions are met but update failed - unexpected state
+    # This indicates a system issue (e.g., database inconsistency, connection problem)
+    # and should surface as 5xx error, not 4xx authorization error
     logger.error(
         "Unexpected failure updating video %d status (still pending, assigned to %s)",
         video_id,
         moderator,
     )
-    raise VideoNotAssignedError(video_id, moderator)
+    raise RuntimeError(
+        f"Concurrent flag failure: video {video_id} remains pending and assigned to "
+        f"{moderator} despite failed conditional update"
+    )
 
 
 async def flag_video(
@@ -244,6 +250,8 @@ async def flag_video(
         VideoNotFoundError: If video does not exist
         VideoNotAssignedError: If video is not assigned to this moderator
         VideoAlreadyModeratedError: If video has already been moderated
+        RuntimeError: If conditional update failed despite all conditions being met
+            (indicates a system issue)
     """
     # Pre-validate for better error messages (before transaction)
     await _validate_video_for_flagging(conn, video_id, moderator)
