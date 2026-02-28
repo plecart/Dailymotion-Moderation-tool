@@ -90,7 +90,7 @@ async def get_video_assigned_to_moderator(
         SELECT id, video_id, status, assigned_to, created_at, updated_at
         FROM videos
         WHERE status = $1 AND assigned_to = $2
-        ORDER BY created_at ASC
+        ORDER BY created_at ASC, id ASC
         LIMIT 1
         """,
         VideoStatus.PENDING.value,
@@ -122,7 +122,7 @@ async def get_next_pending_video_and_assign(
         WHERE id = (
             SELECT id FROM videos
             WHERE status = $2 AND assigned_to IS NULL
-            ORDER BY created_at ASC
+            ORDER BY created_at ASC, id ASC
             FOR UPDATE SKIP LOCKED
             LIMIT 1
         )
