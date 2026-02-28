@@ -51,8 +51,8 @@ def get_redis_client() -> redis.Redis:
 async def cache_get(key: str) -> str | None:
     """Get value from cache.
 
-    Cache operations are best-effort: if Redis is unavailable, returns None
-    (cache miss) rather than raising an exception.
+    Cache operations are best-effort: if Redis is unavailable or not initialized,
+    returns None (cache miss) rather than raising an exception.
 
     Args:
         key: Cache key
@@ -68,7 +68,7 @@ async def cache_get(key: str) -> str | None:
         else:
             logger.debug("Cache miss for key: %s", key)
         return value
-    except redis.exceptions.RedisError as exc:
+    except (redis.exceptions.RedisError, RuntimeError) as exc:
         logger.warning("Redis error reading cache key '%s': %s", key, exc)
         return None
 
@@ -76,8 +76,8 @@ async def cache_get(key: str) -> str | None:
 async def cache_set(key: str, value: Any, ttl: int | None = None) -> None:
     """Set value in cache with optional TTL.
 
-    Cache operations are best-effort: if Redis is unavailable, logs a warning
-    but does not raise an exception to avoid failing the request.
+    Cache operations are best-effort: if Redis is unavailable or not initialized,
+    logs a warning but does not raise an exception to avoid failing the request.
 
     Args:
         key: Cache key
@@ -90,7 +90,7 @@ async def cache_set(key: str, value: Any, ttl: int | None = None) -> None:
             ttl = settings.cache_ttl_seconds
         await client.set(key, value, ex=ttl)
         logger.debug("Cached key: %s with TTL: %d", key, ttl)
-    except redis.exceptions.RedisError as exc:
+    except (redis.exceptions.RedisError, RuntimeError) as exc:
         logger.warning(
             "Failed to cache key '%s' with TTL %d due to Redis error: %s",
             key,
