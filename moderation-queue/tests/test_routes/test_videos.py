@@ -181,7 +181,7 @@ class TestFlagVideoEndpoint:
         )
 
         assert response.status_code == 403
-        assert "not assigned to you" in response.json()["detail"]
+        assert "not assigned to" in response.json()["detail"]
 
     async def test_already_moderated_video_returns_409(
         self, client: AsyncClient, clean_db

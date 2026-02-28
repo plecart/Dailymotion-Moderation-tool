@@ -44,10 +44,10 @@ async def add_video_endpoint(
     try:
         await video_service.add_video(conn, request.video_id)
         return AddVideoResponse(video_id=request.video_id)
-    except VideoAlreadyExistsError:
+    except VideoAlreadyExistsError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Video {request.video_id} already exists in the queue",
+            detail=str(e),
         )
 
 
@@ -70,10 +70,10 @@ async def get_video_endpoint(
     try:
         video = await video_service.get_video_for_moderator(conn, moderator)
         return VideoResponse(video_id=video["video_id"])
-    except NoVideoAvailableError:
+    except NoVideoAvailableError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No video available for moderation",
+            detail=str(e),
         )
 
 
@@ -100,15 +100,15 @@ async def flag_video_endpoint(
             conn, request.video_id, request.status, moderator
         )
         return FlagVideoResponse(video_id=updated["video_id"], status=updated["status"])
-    except VideoNotFoundError:
+    except VideoNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Video {request.video_id} not found",
+            detail=str(e),
         )
-    except VideoNotAssignedError:
+    except VideoNotAssignedError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Video {request.video_id} is not assigned to you",
+            detail=str(e),
         )
     except VideoAlreadyModeratedError as e:
         raise HTTPException(
@@ -151,8 +151,8 @@ async def log_video_endpoint(
     try:
         logs = await video_service.get_video_logs(conn, video_id)
         return [ModerationLogEntry(**log) for log in logs]
-    except VideoNotFoundError:
+    except VideoNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Video {video_id} not found",
+            detail=str(e),
         )
