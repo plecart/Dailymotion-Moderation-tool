@@ -1,6 +1,7 @@
 """Pydantic schemas for request/response validation."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -29,7 +30,9 @@ class FlagVideoRequest(BaseModel):
     """Request schema for flagging a video."""
 
     video_id: int = Field(..., gt=0)
-    status: VideoStatus = Field(..., description="New status: 'spam' or 'not spam'")
+    status: Literal[VideoStatus.SPAM, VideoStatus.NOT_SPAM] = Field(
+        ..., description="New status after moderation: 'spam' or 'not spam'"
+    )
 
 
 class FlagVideoResponse(BaseModel):
