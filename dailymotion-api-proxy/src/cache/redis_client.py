@@ -84,16 +84,16 @@ async def cache_set(key: str, value: Any, ttl: int | None = None) -> None:
         value: Value to cache
         ttl: Time to live in seconds (defaults to settings.cache_ttl_seconds)
     """
+    # Determine effective TTL before any Redis operation so logging is always safe
+    effective_ttl = ttl if ttl is not None else settings.cache_ttl_seconds
     try:
         client = get_redis_client()
-        if ttl is None:
-            ttl = settings.cache_ttl_seconds
-        await client.set(key, value, ex=ttl)
-        logger.debug("Cached key: %s with TTL: %d", key, ttl)
+        await client.set(key, value, ex=effective_ttl)
+        logger.debug("Cached key: %s with TTL: %d", key, effective_ttl)
     except (RedisError, RuntimeError) as exc:
         logger.warning(
             "Failed to cache key '%s' with TTL %d due to Redis error: %s",
             key,
-            ttl,
+            effective_ttl,
             exc,
         )
