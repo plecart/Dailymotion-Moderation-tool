@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 import redis.asyncio as redis
+import redis.exceptions
 
 from src.config import settings
 
@@ -50,31 +51,49 @@ def get_redis_client() -> redis.Redis:
 async def cache_get(key: str) -> str | None:
     """Get value from cache.
 
+    Cache operations are best-effort: if Redis is unavailable, returns None
+    (cache miss) rather than raising an exception.
+
     Args:
         key: Cache key
 
     Returns:
-        Cached value or None if not found
+        Cached value or None if not found or Redis error occurs
     """
-    client = get_redis_client()
-    value = await client.get(key)
-    if value is not None:
-        logger.debug("Cache hit for key: %s", key)
-    else:
-        logger.debug("Cache miss for key: %s", key)
-    return value
+    try:
+        client = get_redis_client()
+        value = await client.get(key)
+        if value is not None:
+            logger.debug("Cache hit for key: %s", key)
+        else:
+            logger.debug("Cache miss for key: %s", key)
+        return value
+    except redis.exceptions.RedisError as exc:
+        logger.warning("Redis error reading cache key '%s': %s", key, exc)
+        return None
 
 
 async def cache_set(key: str, value: Any, ttl: int | None = None) -> None:
     """Set value in cache with optional TTL.
+
+    Cache operations are best-effort: if Redis is unavailable, logs a warning
+    but does not raise an exception to avoid failing the request.
 
     Args:
         key: Cache key
         value: Value to cache
         ttl: Time to live in seconds (defaults to settings.cache_ttl_seconds)
     """
-    client = get_redis_client()
-    if ttl is None:
-        ttl = settings.cache_ttl_seconds
-    await client.set(key, value, ex=ttl)
-    logger.debug("Cached key: %s with TTL: %d", key, ttl)
+    try:
+        client = get_redis_client()
+        if ttl is None:
+            ttl = settings.cache_ttl_seconds
+        await client.set(key, value, ex=ttl)
+        logger.debug("Cached key: %s with TTL: %d", key, ttl)
+    except redis.exceptions.RedisError as exc:
+        logger.warning(
+            "Failed to cache key '%s' with TTL %d due to Redis error: %s",
+            key,
+            ttl,
+            exc,
+        )
