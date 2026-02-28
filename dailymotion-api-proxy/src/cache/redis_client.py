@@ -58,7 +58,7 @@ async def cache_get(key: str) -> str | None:
     """
     client = get_redis_client()
     value = await client.get(key)
-    if value:
+    if value is not None:
         logger.debug("Cache hit for key: %s", key)
     else:
         logger.debug("Cache miss for key: %s", key)

@@ -66,7 +66,7 @@ async def get_video_info(video_id: int) -> dict:
 
     cache_key = _get_cache_key(video_id)
     cached = await cache_get(cache_key)
-    if cached:
+    if cached is not None:
         logger.info("Returning cached video info for %d", video_id)
         return json.loads(cached)
 
