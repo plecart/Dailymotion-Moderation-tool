@@ -60,10 +60,7 @@ def _handle_http_status_error(error: httpx.HTTPStatusError, requested_video_id: 
     if not content:
         body = "no body"
     else:
-        try:
-            body = content.decode("utf-8", errors="replace")
-        except Exception:
-            body = f"<binary content, {len(content)} bytes>"
+        body = content.decode("utf-8", errors="replace")
     return DailymotionAPIError(
         f"Dailymotion API returned HTTP {error.response.status_code} "
         f"for {error.request.url} (requested video_id: {requested_video_id}): {body}",
