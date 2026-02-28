@@ -44,5 +44,5 @@ def get_moderator(authorization: str = Header(...)) -> str:
         logger.warning("Invalid Authorization header: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Authorization header. Expected base64-encoded moderator name.",
+            detail=f"Invalid Authorization header: {e}. Expected base64-encoded moderator name.",
         )

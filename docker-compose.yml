@@ -45,6 +45,8 @@ services:
         condition: service_healthy
     volumes:
       - ./moderation-queue/src:/app/src
+      - ./moderation-queue/tests:/app/tests
+      - ./moderation-queue/pytest.ini:/app/pytest.ini:ro
     healthcheck: *app-healthcheck
 
   dailymotion-api-proxy:
@@ -57,11 +59,14 @@ services:
       REDIS_URL: ${REDIS_URL}
       DAILYMOTION_API_BASE_URL: ${DAILYMOTION_API_BASE_URL}
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS}
+      DAILYMOTION_FIXED_VIDEO_ID: ${DAILYMOTION_FIXED_VIDEO_ID}
     depends_on:
       redis:
         condition: service_healthy
     volumes:
       - ./dailymotion-api-proxy/src:/app/src
+      - ./dailymotion-api-proxy/tests:/app/tests
+      - ./dailymotion-api-proxy/pytest.ini:/app/pytest.ini:ro
     healthcheck: *app-healthcheck
 
 volumes:

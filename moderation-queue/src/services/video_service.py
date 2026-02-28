@@ -116,7 +116,7 @@ async def get_video_for_moderator(conn: asyncpg.Connection, moderator: str) -> d
         return video
 
     logger.info("No video available for moderator %s", moderator)
-    raise NoVideoAvailableError()
+    raise NoVideoAvailableError(moderator)
 
 
 def _check_video_flagging_conditions(

@@ -20,8 +20,9 @@ class VideoNotFoundError(Exception):
 class NoVideoAvailableError(Exception):
     """Raised when no video is available for moderation."""
 
-    def __init__(self):
-        super().__init__("No video available for moderation")
+    def __init__(self, moderator: str):
+        self.moderator = moderator
+        super().__init__(f"No video available for moderator '{moderator}'")
 
 
 class VideoNotAssignedError(Exception):

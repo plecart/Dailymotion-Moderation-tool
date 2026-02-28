@@ -13,6 +13,7 @@ from src.exceptions import DailymotionAPIError, VideoNotFoundError
 logger = logging.getLogger(__name__)
 
 CACHE_KEY_PREFIX = "video_info:"
+_MAX_ERROR_BODY_LENGTH = 200
 
 
 def _is_video_id_404(video_id: int) -> bool:
@@ -39,33 +40,65 @@ def _get_cache_key(video_id: int | str) -> str:
     return f"{CACHE_KEY_PREFIX}{video_id}"
 
 
-def _handle_api_error(error: Exception, video_id: int) -> DailymotionAPIError:
-    """Handle API errors and convert to DailymotionAPIError.
+def _handle_http_status_error(error: httpx.HTTPStatusError, requested_video_id: int) -> DailymotionAPIError:
+    """Convert an HTTP status error to DailymotionAPIError.
 
     Args:
-        error: Exception raised by fetch_video_info
-        video_id: Video identifier for logging
+        error: HTTP status error from upstream API
+        requested_video_id: Video ID originally requested by client
 
     Returns:
-        DailymotionAPIError with appropriate message
+        DailymotionAPIError with status code, URL, response body, and requested video_id
     """
-    if isinstance(error, httpx.HTTPStatusError):
-        logger.error("Dailymotion API error: %s", error)
-        # Upstream 404 for fixed video ID indicates misconfiguration/outage,
-        # not that the requested video_id doesn't exist
-        return DailymotionAPIError(
-            f"Dailymotion API error: {error.response.status_code}",
-            status_code=error.response.status_code,
-        )
-    if isinstance(error, httpx.RequestError):
-        logger.error("Dailymotion API request failed: %s", error)
-        return DailymotionAPIError("Dailymotion API request failed")
-    if isinstance(error, RuntimeError):
-        logger.error("Dailymotion HTTP client not initialized: %s", error)
-        return DailymotionAPIError("Dailymotion API client not initialized")
-    # Fallback for unexpected exceptions
-    logger.error("Unexpected error fetching video info for %d: %s", video_id, error)
-    return DailymotionAPIError("Dailymotion API error")
+    logger.error(
+        "Dailymotion API HTTP error for requested video_id %d: %s",
+        requested_video_id,
+        error,
+    )
+    # Read and truncate content before decoding to avoid unnecessary work
+    content = error.response.content[:_MAX_ERROR_BODY_LENGTH] if error.response.content else b""
+    if not content:
+        body = "no body"
+    else:
+        body = content.decode("utf-8", errors="replace")
+    return DailymotionAPIError(
+        f"Dailymotion API returned HTTP {error.response.status_code} "
+        f"for {error.request.url} (requested video_id: {requested_video_id}): {body}",
+        status_code=error.response.status_code,
+    )
+
+
+def _handle_request_error(error: httpx.RequestError, requested_video_id: int) -> DailymotionAPIError:
+    """Convert a network/transport error to DailymotionAPIError.
+
+    Args:
+        error: Request error (timeout, DNS, connection refused, etc.)
+        requested_video_id: Video ID originally requested by client
+
+    Returns:
+        DailymotionAPIError with transport error details and requested video_id
+    """
+    logger.error(
+        "Dailymotion API request failed for requested video_id %d: %s",
+        requested_video_id,
+        error,
+    )
+    return DailymotionAPIError(
+        f"Dailymotion API request failed (requested video_id: {requested_video_id}): {error}"
+    )
+
+
+def _handle_client_error(error: RuntimeError) -> DailymotionAPIError:
+    """Convert a client initialization error to DailymotionAPIError.
+
+    Args:
+        error: RuntimeError from uninitialized HTTP client
+
+    Returns:
+        DailymotionAPIError with initialization error details
+    """
+    logger.error("Dailymotion HTTP client not initialized: %s", error)
+    return DailymotionAPIError(f"Dailymotion API client not initialized: {error}")
 
 
 async def get_video_info(video_id: int) -> dict:
@@ -112,8 +145,12 @@ async def get_video_info(video_id: int) -> dict:
 
     try:
         data = await fetch_video_info(fixed_video_id)
-    except (httpx.HTTPStatusError, httpx.RequestError, RuntimeError) as e:
-        raise _handle_api_error(e, video_id) from e
+    except httpx.HTTPStatusError as e:
+        raise _handle_http_status_error(e, video_id) from e
+    except httpx.RequestError as e:
+        raise _handle_request_error(e, video_id) from e
+    except RuntimeError as e:
+        raise _handle_client_error(e) from e
 
     await cache_set(cache_key, json.dumps(data))
     logger.info("Fetched and cached video info for %d", video_id)

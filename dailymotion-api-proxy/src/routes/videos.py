@@ -29,13 +29,13 @@ async def get_video_info_endpoint(video_id: int) -> VideoInfoResponse:
     try:
         data = await video_service.get_video_info(video_id)
         return VideoInfoResponse(**data)
-    except VideoNotFoundError:
+    except VideoNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Video {video_id} not found",
+            detail=str(e),
         )
-    except DailymotionAPIError:
+    except DailymotionAPIError as e:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Dailymotion API unavailable",
+            detail=str(e),
         )
