@@ -15,7 +15,7 @@ router = APIRouter(tags=["videos"])
     summary="Get video information",
     description=(
         "Proxy endpoint to fetch video info from Dailymotion API with caching. "
-        "Note: For this test, always returns information for the fixed video x2m8jpp "
+        "Note: For this test, always returns information for a configured fixed video ID "
         "regardless of the requested video_id (per spec)."
     ),
 )
@@ -24,7 +24,7 @@ async def get_video_info_endpoint(video_id: int) -> VideoInfoResponse:
 
     - Uses Redis cache to avoid redundant API calls
     - Returns 404 if video_id ends with 404 (per spec)
-    - Always fetches fixed video x2m8jpp (per spec)
+    - Always fetches a configured fixed video ID regardless of requested video_id (per spec)
     """
     try:
         data = await video_service.get_video_info(video_id)

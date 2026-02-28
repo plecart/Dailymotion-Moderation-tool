@@ -48,7 +48,8 @@ async def get_video_info(video_id: int) -> dict:
     3. Fetch from Dailymotion API if not cached
     4. Cache the result
 
-    Note: Per spec, always fetches the fixed video x2m8jpp regardless of video_id.
+    Note: Per spec, always fetches a configured fixed video ID (settings.dailymotion_fixed_video_id)
+    regardless of the requested video_id.
 
     Args:
         video_id: Video identifier from request
