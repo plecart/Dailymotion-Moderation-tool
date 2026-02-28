@@ -5,8 +5,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from src.models.enums import VideoStatus
-
 
 class AddVideoRequest(BaseModel):
     """Request schema for adding a video to the moderation queue."""
@@ -30,7 +28,7 @@ class FlagVideoRequest(BaseModel):
     """Request schema for flagging a video."""
 
     video_id: int = Field(..., gt=0)
-    status: Literal[VideoStatus.SPAM, VideoStatus.NOT_SPAM] = Field(
+    status: Literal["spam", "not spam"] = Field(
         ..., description="New status after moderation: 'spam' or 'not spam'"
     )
 
@@ -63,7 +61,7 @@ class VideoInDB(BaseModel):
 
     id: int
     video_id: int
-    status: VideoStatus
+    status: str
     assigned_to: str | None
     created_at: datetime
     updated_at: datetime

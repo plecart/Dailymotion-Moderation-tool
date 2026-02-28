@@ -4,8 +4,20 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.dependencies import get_db, get_moderator
-from src.exceptions import NoVideoAvailableError, VideoAlreadyExistsError
-from src.models.schemas import AddVideoRequest, AddVideoResponse, VideoResponse
+from src.exceptions import (
+    NoVideoAvailableError,
+    VideoAlreadyExistsError,
+    VideoAlreadyModeratedError,
+    VideoNotAssignedError,
+    VideoNotFoundError,
+)
+from src.models.schemas import (
+    AddVideoRequest,
+    AddVideoResponse,
+    FlagVideoRequest,
+    FlagVideoResponse,
+    VideoResponse,
+)
 from src.services import video_service
 
 router = APIRouter(tags=["videos"])
@@ -60,4 +72,44 @@ async def get_video_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No video available for moderation",
+        )
+
+
+@router.post(
+    "/flag_video",
+    response_model=FlagVideoResponse,
+    summary="Flag a video as spam or not spam",
+    description="Moderator endpoint to mark a video after review.",
+)
+async def flag_video_endpoint(
+    request: FlagVideoRequest,
+    moderator: str = Depends(get_moderator),
+    conn: asyncpg.Connection = Depends(get_db),
+) -> FlagVideoResponse:
+    """Flag a video as spam or not spam.
+
+    - Video must be assigned to the authenticated moderator
+    - Creates a moderation log entry
+    - Updates video status and releases assignment
+    - Requires base64-encoded moderator name in Authorization header
+    """
+    try:
+        updated = await video_service.flag_video(
+            conn, request.video_id, request.status, moderator
+        )
+        return FlagVideoResponse(video_id=updated["video_id"], status=updated["status"])
+    except VideoNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Video {request.video_id} not found",
+        )
+    except VideoNotAssignedError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Video {request.video_id} is not assigned to you",
+        )
+    except VideoAlreadyModeratedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
         )

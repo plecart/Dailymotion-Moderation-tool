@@ -164,3 +164,47 @@ async def update_video_status(
     if row:
         logger.info("Updated video %d to status %s", video_id, new_status.value)
     return dict(row) if row else None
+
+
+async def update_video_status_if_pending_and_assigned(
+    conn: asyncpg.Connection,
+    video_id: int,
+    new_status: VideoStatus,
+    moderator: str,
+) -> dict | None:
+    """Update video status only if it's still pending and assigned to the moderator.
+
+    This conditional update prevents race conditions when multiple requests
+    try to flag the same video concurrently.
+
+    Args:
+        conn: Database connection
+        video_id: Video identifier
+        new_status: New status to set
+        moderator: Moderator name that must be assigned to the video
+
+    Returns:
+        Dict with updated video data or None if conditions not met
+    """
+    row = await conn.fetchrow(
+        """
+        UPDATE videos
+        SET status = $1, assigned_to = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE video_id = $2
+          AND status = $3
+          AND assigned_to = $4
+        RETURNING id, video_id, status, assigned_to, created_at, updated_at
+        """,
+        new_status.value,
+        video_id,
+        VideoStatus.PENDING.value,
+        moderator,
+    )
+    if row:
+        logger.info(
+            "Updated video %d to status %s (was pending, assigned to %s)",
+            video_id,
+            new_status.value,
+            moderator,
+        )
+    return dict(row) if row else None

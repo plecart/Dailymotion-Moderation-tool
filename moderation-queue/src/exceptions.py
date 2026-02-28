@@ -22,3 +22,23 @@ class NoVideoAvailableError(Exception):
 
     def __init__(self):
         super().__init__("No video available for moderation")
+
+
+class VideoNotAssignedError(Exception):
+    """Raised when moderator tries to flag a video not assigned to them."""
+
+    def __init__(self, video_id: int, moderator: str):
+        self.video_id = video_id
+        self.moderator = moderator
+        super().__init__(f"Video {video_id} is not assigned to {moderator}")
+
+
+class VideoAlreadyModeratedError(Exception):
+    """Raised when trying to flag a video that has already been moderated."""
+
+    def __init__(self, video_id: int, current_status: str):
+        self.video_id = video_id
+        self.current_status = current_status
+        super().__init__(
+            f"Video {video_id} has already been moderated (current status: {current_status})"
+        )
