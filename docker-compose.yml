@@ -46,6 +46,7 @@ services:
     volumes:
       - ./moderation-queue/src:/app/src
       - ./moderation-queue/tests:/app/tests
+      - ./moderation-queue/pytest.ini:/app/pytest.ini:ro
     healthcheck: *app-healthcheck
 
   dailymotion-api-proxy:
@@ -65,6 +66,7 @@ services:
     volumes:
       - ./dailymotion-api-proxy/src:/app/src
       - ./dailymotion-api-proxy/tests:/app/tests
+      - ./dailymotion-api-proxy/pytest.ini:/app/pytest.ini:ro
     healthcheck: *app-healthcheck
 
 volumes:
