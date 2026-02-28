@@ -10,6 +10,7 @@ from src.config import settings
 from src.exceptions import (
     NoVideoAvailableError,
     VideoAlreadyExistsError,
+    VideoAlreadyModeratedError,
     VideoNotAssignedError,
     VideoNotFoundError,
 )
@@ -145,6 +146,7 @@ async def flag_video(
     Raises:
         VideoNotFoundError: If video does not exist
         VideoNotAssignedError: If video is not assigned to this moderator
+        VideoAlreadyModeratedError: If video has already been moderated
     """
     video = await video_repository.get_video_by_video_id(conn, video_id)
     if not video:
@@ -161,8 +163,12 @@ async def flag_video(
         raise VideoNotAssignedError(video_id, moderator)
 
     if video["status"] != VideoStatus.PENDING.value:
-        logger.warning("Flag attempt on already moderated video: %d", video_id)
-        raise VideoNotAssignedError(video_id, moderator)
+        logger.warning(
+            "Flag attempt on already moderated video: %d (status: %s)",
+            video_id,
+            video["status"],
+        )
+        raise VideoAlreadyModeratedError(video_id, video["status"])
 
     new_status = VideoStatus(status)
     await moderation_log_repository.insert_log(conn, video_id, status, moderator)

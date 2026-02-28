@@ -7,6 +7,7 @@ from src.dependencies import get_db, get_moderator
 from src.exceptions import (
     NoVideoAvailableError,
     VideoAlreadyExistsError,
+    VideoAlreadyModeratedError,
     VideoNotAssignedError,
     VideoNotFoundError,
 )
@@ -106,4 +107,9 @@ async def flag_video_endpoint(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Video {request.video_id} is not assigned to you",
+        )
+    except VideoAlreadyModeratedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
         )
