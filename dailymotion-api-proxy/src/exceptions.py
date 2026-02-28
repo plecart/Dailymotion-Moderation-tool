@@ -2,7 +2,7 @@
 
 
 class VideoNotFoundError(Exception):
-    """Raised when a video is not found (404 rule or API 404)."""
+    """Raised when a video is not found according to business rules (not for upstream API 404s)."""
 
     def __init__(self, video_id: int):
         self.video_id = video_id
