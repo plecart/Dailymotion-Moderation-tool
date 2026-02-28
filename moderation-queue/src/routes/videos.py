@@ -1,7 +1,7 @@
 """Video routes for the moderation queue API."""
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from src.dependencies import get_db, get_moderator
 from src.exceptions import (
@@ -141,7 +141,7 @@ async def stats_endpoint(
     description="Returns the moderation action history for a specific video.",
 )
 async def log_video_endpoint(
-    video_id: int,
+    video_id: int = Path(..., gt=0, description="Video identifier"),
     conn: asyncpg.Connection = Depends(get_db),
 ) -> list[ModerationLogEntry]:
     """Get moderation history for a video.
