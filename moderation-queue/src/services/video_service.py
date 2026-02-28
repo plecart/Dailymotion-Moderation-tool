@@ -266,7 +266,9 @@ async def flag_video(
         )
         # Only insert a moderation log entry if the status update succeeded
         if updated:
-            await moderation_log_repository.insert_log(conn, video_id, status, moderator)
+            await moderation_log_repository.insert_log(
+                conn, video_id, status, moderator
+            )
 
     # If update failed, handle concurrent modification
     if not updated:
@@ -274,3 +276,49 @@ async def flag_video(
 
     logger.info("Video %d flagged as %s by %s", video_id, status, moderator)
     return updated
+
+
+async def get_stats(conn: asyncpg.Connection) -> dict:
+    """Get moderation queue statistics.
+
+    Args:
+        conn: Database connection
+
+    Returns:
+        Dict with total_pending_videos, total_spam_videos, total_not_spam_videos
+    """
+    counts = await video_repository.count_videos_by_status(conn)
+    return {
+        "total_pending_videos": counts.get(VideoStatus.PENDING.value, 0),
+        "total_spam_videos": counts.get(VideoStatus.SPAM.value, 0),
+        "total_not_spam_videos": counts.get(VideoStatus.NOT_SPAM.value, 0),
+    }
+
+
+async def get_video_logs(conn: asyncpg.Connection, video_id: int) -> list[dict]:
+    """Get moderation history for a video.
+
+    Args:
+        conn: Database connection
+        video_id: Video identifier
+
+    Returns:
+        List of moderation log entries
+
+    Raises:
+        VideoNotFoundError: If video does not exist
+    """
+    video = await video_repository.get_video_by_video_id(conn, video_id)
+    if not video:
+        logger.warning("Log request for non-existent video: %d", video_id)
+        raise VideoNotFoundError(video_id)
+
+    logs = await moderation_log_repository.get_logs_by_video_id(conn, video_id)
+    return [
+        {
+            "date": log["created_at"],
+            "status": log["status"],
+            "moderator": log["moderator"],
+        }
+        for log in logs
+    ]

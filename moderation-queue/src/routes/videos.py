@@ -1,7 +1,7 @@
 """Video routes for the moderation queue API."""
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from src.dependencies import get_db, get_moderator
 from src.exceptions import (
@@ -16,6 +16,8 @@ from src.models.schemas import (
     AddVideoResponse,
     FlagVideoRequest,
     FlagVideoResponse,
+    ModerationLogEntry,
+    StatsResponse,
     VideoResponse,
 )
 from src.services import video_service
@@ -112,4 +114,45 @@ async def flag_video_endpoint(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
+        )
+
+
+@router.get(
+    "/stats",
+    response_model=StatsResponse,
+    summary="Get queue statistics",
+    description="Returns counts of pending, spam, and not spam videos.",
+)
+async def stats_endpoint(
+    conn: asyncpg.Connection = Depends(get_db),
+) -> StatsResponse:
+    """Get moderation queue statistics.
+
+    No authentication required.
+    """
+    stats = await video_service.get_stats(conn)
+    return StatsResponse(**stats)
+
+
+@router.get(
+    "/log_video/{video_id}",
+    response_model=list[ModerationLogEntry],
+    summary="Get moderation history for a video",
+    description="Returns the moderation action history for a specific video.",
+)
+async def log_video_endpoint(
+    video_id: int = Path(..., gt=0, description="Video identifier"),
+    conn: asyncpg.Connection = Depends(get_db),
+) -> list[ModerationLogEntry]:
+    """Get moderation history for a video.
+
+    No authentication required.
+    """
+    try:
+        logs = await video_service.get_video_logs(conn, video_id)
+        return [ModerationLogEntry(**log) for log in logs]
+    except VideoNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Video {video_id} not found",
         )
