@@ -68,8 +68,15 @@ async def get_video_info(video_id: int) -> dict:
     cache_key = _get_cache_key(video_id)
     cached = await cache_get(cache_key)
     if cached is not None:
-        logger.info("Returning cached video info for %d", video_id)
-        return json.loads(cached)
+        try:
+            logger.info("Returning cached video info for %d", video_id)
+            return json.loads(cached)
+        except json.JSONDecodeError:
+            logger.warning(
+                "Failed to decode cached video info for %d; treating as cache miss",
+                video_id,
+            )
+            # Continue to fetch from API as if cache miss
 
     try:
         data = await fetch_video_info(settings.dailymotion_fixed_video_id)
