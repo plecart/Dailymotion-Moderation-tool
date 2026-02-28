@@ -119,6 +119,45 @@ async def get_video_for_moderator(conn: asyncpg.Connection, moderator: str) -> d
     raise NoVideoAvailableError()
 
 
+def _check_video_flagging_conditions(
+    video: dict, video_id: int, moderator: str, context: str = "Flag attempt"
+) -> None:
+    """Check if a video can be flagged by the moderator.
+
+    Validates video status and assignment. Raises appropriate exception if conditions
+    are not met.
+
+    Args:
+        video: Video data dict
+        video_id: Video identifier (for error messages)
+        moderator: Name of the moderator
+        context: Context string for log messages (default: "Flag attempt")
+
+    Raises:
+        VideoAlreadyModeratedError: If video has already been moderated
+        VideoNotAssignedError: If video is not assigned to this moderator
+    """
+    # Check status first, as assigned_to is NULL after moderation
+    if video["status"] != VideoStatus.PENDING.value:
+        logger.warning(
+            "%s on already moderated video: %d (status: %s)",
+            context,
+            video_id,
+            video["status"],
+        )
+        raise VideoAlreadyModeratedError(video_id, video["status"])
+
+    if video["assigned_to"] != moderator:
+        logger.warning(
+            "%s: moderator %s tried to flag video %d assigned to %s",
+            context,
+            moderator,
+            video_id,
+            video["assigned_to"],
+        )
+        raise VideoNotAssignedError(video_id, moderator)
+
+
 async def _validate_video_for_flagging(
     conn: asyncpg.Connection, video_id: int, moderator: str
 ) -> None:
@@ -139,23 +178,7 @@ async def _validate_video_for_flagging(
         logger.warning("Flag attempt on non-existent video: %d", video_id)
         raise VideoNotFoundError(video_id)
 
-    # Check status first, as assigned_to is NULL after moderation
-    if video["status"] != VideoStatus.PENDING.value:
-        logger.warning(
-            "Flag attempt on already moderated video: %d (status: %s)",
-            video_id,
-            video["status"],
-        )
-        raise VideoAlreadyModeratedError(video_id, video["status"])
-
-    if video["assigned_to"] != moderator:
-        logger.warning(
-            "Moderator %s tried to flag video %d assigned to %s",
-            moderator,
-            video_id,
-            video["assigned_to"],
-        )
-        raise VideoNotAssignedError(video_id, moderator)
+    _check_video_flagging_conditions(video, video_id, moderator)
 
 
 async def _handle_concurrent_flag_failure(
@@ -163,7 +186,9 @@ async def _handle_concurrent_flag_failure(
 ) -> None:
     """Handle failure of conditional update due to concurrent modification.
 
-    Re-reads the video state and raises the appropriate exception.
+    Re-reads the video state and raises the appropriate exception based on current state.
+    This handles the race condition where another request modified the video between
+    the initial validation and the conditional update.
 
     Args:
         conn: Database connection
@@ -175,25 +200,13 @@ async def _handle_concurrent_flag_failure(
         VideoAlreadyModeratedError: If video has already been moderated
     """
     current_video = await video_repository.get_video_by_video_id(conn, video_id)
-    # Check status first, as assigned_to is NULL after moderation
-    if current_video["status"] != VideoStatus.PENDING.value:
-        logger.warning(
-            "Concurrent flag attempt: video %d was already moderated (status: %s)",
-            video_id,
-            current_video["status"],
-        )
-        raise VideoAlreadyModeratedError(video_id, current_video["status"])
-
-    if current_video["assigned_to"] != moderator:
-        logger.warning(
-            "Concurrent flag attempt: moderator %s tried to flag video %d assigned to %s",
-            moderator,
-            video_id,
-            current_video["assigned_to"],
-        )
-        raise VideoNotAssignedError(video_id, moderator)
-
-    # Should not happen, but handle gracefully
+    
+    # Check conditions - raises exception if conditions not met (expected case)
+    _check_video_flagging_conditions(
+        current_video, video_id, moderator, context="Concurrent flag attempt"
+    )
+    
+    # If we reach here, conditions are met but update failed - unexpected state
     logger.error(
         "Unexpected failure updating video %d status (still pending, assigned to %s)",
         video_id,
@@ -237,14 +250,15 @@ async def flag_video(
 
     new_status = VideoStatus(status)
 
-    # Wrap log insert + status update in a transaction for atomicity
+    # Wrap status update + log insert in a transaction for atomicity
     # The conditional update prevents race conditions from concurrent flag requests
     async with conn.transaction():
-        await moderation_log_repository.insert_log(conn, video_id, status, moderator)
-
         updated = await video_repository.update_video_status_if_pending_and_assigned(
             conn, video_id, new_status, moderator
         )
+        # Only insert a moderation log entry if the status update succeeded
+        if updated:
+            await moderation_log_repository.insert_log(conn, video_id, status, moderator)
 
     # If update failed, handle concurrent modification
     if not updated:
