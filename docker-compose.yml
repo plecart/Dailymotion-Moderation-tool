@@ -57,6 +57,7 @@ services:
       REDIS_URL: ${REDIS_URL}
       DAILYMOTION_API_BASE_URL: ${DAILYMOTION_API_BASE_URL}
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS}
+      DAILYMOTION_FIXED_VIDEO_ID: ${DAILYMOTION_FIXED_VIDEO_ID}
     depends_on:
       redis:
         condition: service_healthy
