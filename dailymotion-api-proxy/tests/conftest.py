@@ -39,7 +39,14 @@ async def mock_http_client():
 
 @pytest.fixture
 async def client(mock_redis, mock_http_client) -> AsyncGenerator[AsyncClient, None]:
-    """Create test client with mocked dependencies."""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
+    """Create test client with mocked dependencies.
+
+    Patches create_redis_client and create_http_client to no-op to prevent
+    lifespan from overwriting mocked clients if lifespan executes.
+    """
+    with patch("src.cache.redis_client.create_redis_client"), patch(
+        "src.clients.dailymotion_client.create_http_client"
+    ):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac
