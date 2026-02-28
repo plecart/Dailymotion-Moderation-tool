@@ -74,6 +74,7 @@ async def cache_set(key: str, value: Any, ttl: int | None = None) -> None:
         ttl: Time to live in seconds (defaults to settings.cache_ttl_seconds)
     """
     client = get_redis_client()
-    ttl = ttl or settings.cache_ttl_seconds
+    if ttl is None:
+        ttl = settings.cache_ttl_seconds
     await client.set(key, value, ex=ttl)
     logger.debug("Cached key: %s with TTL: %d", key, ttl)
