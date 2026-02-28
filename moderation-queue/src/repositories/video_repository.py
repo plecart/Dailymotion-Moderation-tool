@@ -208,3 +208,22 @@ async def update_video_status_if_pending_and_assigned(
             moderator,
         )
     return dict(row) if row else None
+
+
+async def count_videos_by_status(conn: asyncpg.Connection) -> dict[str, int]:
+    """Count videos grouped by status.
+
+    Args:
+        conn: Database connection
+
+    Returns:
+        Dict with status as key and count as value
+    """
+    rows = await conn.fetch(
+        """
+        SELECT status, COUNT(*) as count
+        FROM videos
+        GROUP BY status
+        """
+    )
+    return {row["status"]: row["count"] for row in rows}
