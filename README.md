@@ -243,7 +243,7 @@ docker compose exec dailymotion-api-proxy python -m pytest -v
 - **Framework**: FastAPI
 - **Cache**: Redis 7 with configurable TTL (default: 300s)
 - **HTTP Client**: httpx async client
-- **Fixed Video**: Proxies a fixed video ID (default: `x2m8jpp`, configurable via `DAILYMOTION_FIXED_VIDEO_ID`)
+- **Fixed Video**: Proxies a fixed video ID (default: `x2m8jpp` in code, `.env` uses `x9zxn76` for testing, configurable via `DAILYMOTION_FIXED_VIDEO_ID`)
 
 ## Environment Variables
 
@@ -253,7 +253,7 @@ docker compose exec dailymotion-api-proxy python -m pytest -v
 | REDIS_URL | dailymotion-api-proxy | redis://redis:6379 | Redis connection string |
 | DAILYMOTION_API_BASE_URL | dailymotion-api-proxy | https://api.dailymotion.com | Dailymotion API URL |
 | CACHE_TTL_SECONDS | dailymotion-api-proxy | 300 | Cache TTL in seconds |
-| DAILYMOTION_FIXED_VIDEO_ID | dailymotion-api-proxy | x2m8jpp | Fixed video ID to fetch |
+| DAILYMOTION_FIXED_VIDEO_ID | dailymotion-api-proxy | x2m8jpp (x9zxn76 in committed .env) | Fixed video ID to fetch |
 
 ## Stopping Services
 
