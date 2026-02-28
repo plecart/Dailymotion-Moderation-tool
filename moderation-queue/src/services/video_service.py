@@ -19,17 +19,19 @@ def _get_moderator_lock_keys(moderator: str) -> tuple[int, int]:
     Uses SHA-256 hash of moderator name combined with base key from settings.
     Returns two 64-bit keys for use with pg_advisory_xact_lock(key1, key2)
     to reduce collision risk and ensure FIPS compatibility.
+    Keys are guaranteed to fit PostgreSQL's signed bigint range (-2^63 to 2^63-1).
 
     Args:
         moderator: Moderator name
 
     Returns:
-        Tuple of two integer lock keys (each fits in int64)
+        Tuple of two integer lock keys (each fits in PostgreSQL signed bigint)
     """
     hash_bytes = hashlib.sha256(moderator.encode()).digest()
     # Use first 8 bytes for key1, next 8 bytes for key2
-    key1_part = int.from_bytes(hash_bytes[:8], byteorder="big", signed=False)
-    key2_part = int.from_bytes(hash_bytes[8:16], byteorder="big", signed=False)
+    # Use signed=True to ensure values fit PostgreSQL's signed bigint range
+    key1_part = int.from_bytes(hash_bytes[:8], byteorder="big", signed=True)
+    key2_part = int.from_bytes(hash_bytes[8:16], byteorder="big", signed=True)
     # Combine with base key to avoid conflicts with other namespaces
     key1 = settings.moderator_lock_base_key ^ key1_part
     key2 = key2_part
