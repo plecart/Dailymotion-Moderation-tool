@@ -13,7 +13,11 @@ router = APIRouter(tags=["videos"])
     "/get_video_info/{video_id}",
     response_model=VideoInfoResponse,
     summary="Get video information",
-    description="Proxy endpoint to fetch video info from Dailymotion API with caching.",
+    description=(
+        "Proxy endpoint to fetch video info from Dailymotion API with caching. "
+        "Note: For this test, always returns information for the fixed video x2m8jpp "
+        "regardless of the requested video_id (per spec)."
+    ),
 )
 async def get_video_info_endpoint(video_id: int) -> VideoInfoResponse:
     """Get video information from Dailymotion API.
