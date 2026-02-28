@@ -183,6 +183,27 @@ class TestFlagVideoEndpoint:
         assert response.status_code == 403
         assert "not assigned to you" in response.json()["detail"]
 
+    async def test_already_moderated_video_returns_409(self, client: AsyncClient, clean_db):
+        """Flag already moderated video returns 409 Conflict."""
+        await client.post("/add_video", json={"video_id": 8006})
+        await client.get(
+            "/get_video", headers={"Authorization": encode_moderator("alice")}
+        )
+        await client.post(
+            "/flag_video",
+            json={"video_id": 8006, "status": "spam"},
+            headers={"Authorization": encode_moderator("alice")},
+        )
+
+        response = await client.post(
+            "/flag_video",
+            json={"video_id": 8006, "status": "not spam"},
+            headers={"Authorization": encode_moderator("alice")},
+        )
+
+        assert response.status_code == 409
+        assert "already been moderated" in response.json()["detail"]
+
     async def test_flag_spam_returns_200(self, client: AsyncClient, clean_db):
         """Flag video as spam returns 200 with updated status."""
         await client.post("/add_video", json={"video_id": 8002})
