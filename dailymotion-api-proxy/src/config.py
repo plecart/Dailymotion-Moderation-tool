@@ -9,8 +9,6 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
     dailymotion_api_base_url: str = "https://api.dailymotion.com"
     cache_ttl_seconds: int = 300
-    app_host: str = "0.0.0.0"
-    app_port: int = 8002
     dailymotion_fixed_video_id: str = "x2m8jpp"
 
     model_config = {"env_file": ".env"}
