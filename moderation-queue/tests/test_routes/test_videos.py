@@ -183,7 +183,9 @@ class TestFlagVideoEndpoint:
         assert response.status_code == 403
         assert "not assigned to you" in response.json()["detail"]
 
-    async def test_already_moderated_video_returns_409(self, client: AsyncClient, clean_db):
+    async def test_already_moderated_video_returns_409(
+        self, client: AsyncClient, clean_db
+    ):
         """Flag already moderated video returns 409 Conflict."""
         await client.post("/add_video", json={"video_id": 8006})
         await client.get(
@@ -259,3 +261,106 @@ class TestFlagVideoEndpoint:
 
         assert response.status_code == 200
         assert response.json()["video_id"] == 8005
+
+
+class TestStatsEndpoint:
+    """Tests for GET /stats endpoint."""
+
+    async def test_stats_empty_queue_returns_zeros(self, client: AsyncClient, clean_db):
+        """Empty queue returns all zeros."""
+        response = await client.get("/stats")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "total_pending_videos": 0,
+            "total_spam_videos": 0,
+            "total_not_spam_videos": 0,
+        }
+
+    async def test_stats_counts_pending_videos(self, client: AsyncClient, clean_db):
+        """Stats correctly counts pending videos."""
+        await client.post("/add_video", json={"video_id": 10001})
+        await client.post("/add_video", json={"video_id": 10002})
+
+        response = await client.get("/stats")
+
+        assert response.status_code == 200
+        assert response.json()["total_pending_videos"] == 2
+
+    async def test_stats_counts_moderated_videos(self, client: AsyncClient, clean_db):
+        """Stats correctly counts spam and not spam videos."""
+        await client.post("/add_video", json={"video_id": 10003})
+        await client.post("/add_video", json={"video_id": 10004})
+        await client.post("/add_video", json={"video_id": 10005})
+
+        await client.get(
+            "/get_video", headers={"Authorization": encode_moderator("alice")}
+        )
+        await client.post(
+            "/flag_video",
+            json={"video_id": 10003, "status": "spam"},
+            headers={"Authorization": encode_moderator("alice")},
+        )
+
+        await client.get(
+            "/get_video", headers={"Authorization": encode_moderator("bob")}
+        )
+        await client.post(
+            "/flag_video",
+            json={"video_id": 10004, "status": "not spam"},
+            headers={"Authorization": encode_moderator("bob")},
+        )
+
+        response = await client.get("/stats")
+
+        assert response.status_code == 200
+        assert response.json()["total_pending_videos"] == 1
+        assert response.json()["total_spam_videos"] == 1
+        assert response.json()["total_not_spam_videos"] == 1
+
+
+class TestLogVideoEndpoint:
+    """Tests for GET /log_video/{video_id} endpoint."""
+
+    async def test_log_video_nonexistent_returns_404(
+        self, client: AsyncClient, clean_db
+    ):
+        """Log request for non-existent video returns 404."""
+        response = await client.get("/log_video/9999")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+    async def test_log_video_no_logs_returns_empty_list(
+        self, client: AsyncClient, clean_db
+    ):
+        """Video without moderation logs returns empty list."""
+        await client.post("/add_video", json={"video_id": 11001})
+
+        response = await client.get("/log_video/11001")
+
+        assert response.status_code == 200
+        assert response.json() == []
+
+    async def test_log_video_returns_moderation_history(
+        self, client: AsyncClient, clean_db
+    ):
+        """Log endpoint returns moderation history."""
+        await client.post("/add_video", json={"video_id": 11002})
+        await client.get(
+            "/get_video", headers={"Authorization": encode_moderator("alice")}
+        )
+        await client.post(
+            "/flag_video",
+            json={"video_id": 11002, "status": "spam"},
+            headers={"Authorization": encode_moderator("alice")},
+        )
+
+        response = await client.get("/log_video/11002")
+
+        assert response.status_code == 200
+        logs = response.json()
+        assert len(logs) == 1
+        assert logs[0]["status"] == "spam"
+        assert logs[0]["moderator"] == "alice"
+        assert "date" in logs[0]

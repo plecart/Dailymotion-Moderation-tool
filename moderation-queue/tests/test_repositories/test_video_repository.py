@@ -161,3 +161,48 @@ class TestUpdateVideoStatus:
             )
 
         assert result is None
+
+
+class TestCountVideosByStatus:
+    """Tests for video count by status function."""
+
+    async def test_count_empty_queue_returns_empty_dict(
+        self, ensure_migrations, clean_db
+    ):
+        """Empty queue returns empty dict."""
+        async with get_connection() as conn:
+            result = await video_repository.count_videos_by_status(conn)
+
+        assert result == {}
+
+    async def test_count_pending_videos(self, ensure_migrations, clean_db):
+        """Counts pending videos correctly."""
+        async with get_connection() as conn:
+            await video_repository.insert_video(conn, video_id=4001)
+            await video_repository.insert_video(conn, video_id=4002)
+            result = await video_repository.count_videos_by_status(conn)
+
+        assert result.get(VideoStatus.PENDING.value) == 2
+
+    async def test_count_all_statuses(self, ensure_migrations, clean_db):
+        """Counts all statuses correctly."""
+        async with get_connection() as conn:
+            await video_repository.insert_video(conn, video_id=4003)
+            await video_repository.insert_video(conn, video_id=4004)
+            await video_repository.insert_video(conn, video_id=4005)
+
+            await video_repository.get_next_pending_video_and_assign(conn, "alice")
+            await video_repository.update_video_status(
+                conn, video_id=4003, new_status=VideoStatus.SPAM
+            )
+
+            await video_repository.get_next_pending_video_and_assign(conn, "bob")
+            await video_repository.update_video_status(
+                conn, video_id=4004, new_status=VideoStatus.NOT_SPAM
+            )
+
+            result = await video_repository.count_videos_by_status(conn)
+
+        assert result.get(VideoStatus.PENDING.value) == 1
+        assert result.get(VideoStatus.SPAM.value) == 1
+        assert result.get(VideoStatus.NOT_SPAM.value) == 1

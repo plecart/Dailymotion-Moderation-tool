@@ -191,3 +191,72 @@ class TestFlagVideo:
 
         assert exc_info.value.video_id == 6005
         assert exc_info.value.current_status == VideoStatus.SPAM.value
+
+
+class TestGetStats:
+    """Tests for get_stats service function."""
+
+    async def test_empty_queue_returns_all_zeros(self, ensure_migrations, clean_db):
+        """Empty queue returns all zeros."""
+        async with get_connection() as conn:
+            result = await video_service.get_stats(conn)
+
+        assert result["total_pending_videos"] == 0
+        assert result["total_spam_videos"] == 0
+        assert result["total_not_spam_videos"] == 0
+
+    async def test_counts_all_statuses_correctly(self, ensure_migrations, clean_db):
+        """Stats counts all statuses correctly."""
+        async with get_connection() as conn:
+            await video_service.add_video(conn, video_id=7001)
+            await video_service.add_video(conn, video_id=7002)
+            await video_service.add_video(conn, video_id=7003)
+            await video_service.add_video(conn, video_id=7004)
+
+            await video_service.get_video_for_moderator(conn, "alice")
+            await video_service.flag_video(conn, 7001, "spam", "alice")
+
+            await video_service.get_video_for_moderator(conn, "bob")
+            await video_service.flag_video(conn, 7002, "not spam", "bob")
+
+            result = await video_service.get_stats(conn)
+
+        assert result["total_pending_videos"] == 2
+        assert result["total_spam_videos"] == 1
+        assert result["total_not_spam_videos"] == 1
+
+
+class TestGetVideoLogs:
+    """Tests for get_video_logs service function."""
+
+    async def test_nonexistent_video_raises_not_found(
+        self, ensure_migrations, clean_db
+    ):
+        """Logs request for non-existent video raises VideoNotFoundError."""
+        async with get_connection() as conn:
+            with pytest.raises(VideoNotFoundError):
+                await video_service.get_video_logs(conn, 9999)
+
+    async def test_video_without_logs_returns_empty_list(
+        self, ensure_migrations, clean_db
+    ):
+        """Video without moderation logs returns empty list."""
+        async with get_connection() as conn:
+            await video_service.add_video(conn, video_id=8001)
+            result = await video_service.get_video_logs(conn, 8001)
+
+        assert result == []
+
+    async def test_returns_moderation_history(self, ensure_migrations, clean_db):
+        """Returns moderation history with correct format."""
+        async with get_connection() as conn:
+            await video_service.add_video(conn, video_id=8002)
+            await video_service.get_video_for_moderator(conn, "alice")
+            await video_service.flag_video(conn, 8002, "spam", "alice")
+
+            result = await video_service.get_video_logs(conn, 8002)
+
+        assert len(result) == 1
+        assert result[0]["status"] == "spam"
+        assert result[0]["moderator"] == "alice"
+        assert "date" in result[0]
