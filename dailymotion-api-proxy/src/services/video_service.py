@@ -39,6 +39,35 @@ def _get_cache_key(video_id: int | str) -> str:
     return f"{CACHE_KEY_PREFIX}{video_id}"
 
 
+def _handle_api_error(error: Exception, video_id: int) -> DailymotionAPIError:
+    """Handle API errors and convert to DailymotionAPIError.
+
+    Args:
+        error: Exception raised by fetch_video_info
+        video_id: Video identifier for logging
+
+    Returns:
+        DailymotionAPIError with appropriate message
+    """
+    if isinstance(error, httpx.HTTPStatusError):
+        logger.error("Dailymotion API error: %s", error)
+        # Upstream 404 for fixed video ID indicates misconfiguration/outage,
+        # not that the requested video_id doesn't exist
+        return DailymotionAPIError(
+            f"Dailymotion API error: {error.response.status_code}",
+            status_code=error.response.status_code,
+        )
+    if isinstance(error, httpx.RequestError):
+        logger.error("Dailymotion API request failed: %s", error)
+        return DailymotionAPIError("Dailymotion API request failed")
+    if isinstance(error, RuntimeError):
+        logger.error("Dailymotion HTTP client not initialized: %s", error)
+        return DailymotionAPIError("Dailymotion API client not initialized")
+    # Fallback for unexpected exceptions
+    logger.error("Unexpected error fetching video info for %d: %s", video_id, error)
+    return DailymotionAPIError("Dailymotion API error")
+
+
 async def get_video_info(video_id: int) -> dict:
     """Get video information with caching.
 
@@ -83,20 +112,8 @@ async def get_video_info(video_id: int) -> dict:
 
     try:
         data = await fetch_video_info(fixed_video_id)
-    except httpx.HTTPStatusError as e:
-        logger.error("Dailymotion API error: %s", e)
-        if e.response.status_code == 404:
-            raise VideoNotFoundError(video_id)
-        raise DailymotionAPIError(
-            f"Dailymotion API error: {e.response.status_code}",
-            status_code=e.response.status_code,
-        )
-    except httpx.RequestError as e:
-        logger.error("Dailymotion API request failed: %s", e)
-        raise DailymotionAPIError("Dailymotion API request failed")
-    except RuntimeError as e:
-        logger.error("Dailymotion HTTP client not initialized: %s", e)
-        raise DailymotionAPIError("Dailymotion API client not initialized")
+    except (httpx.HTTPStatusError, httpx.RequestError, RuntimeError) as e:
+        raise _handle_api_error(e, video_id)
 
     await cache_set(cache_key, json.dumps(data))
     logger.info("Fetched and cached video info for %d", video_id)
