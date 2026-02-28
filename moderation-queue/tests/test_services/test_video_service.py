@@ -6,10 +6,12 @@ from src.database.connection import get_connection
 from src.exceptions import (
     NoVideoAvailableError,
     VideoAlreadyExistsError,
+    VideoAlreadyModeratedError,
     VideoNotAssignedError,
     VideoNotFoundError,
 )
 from src.models.enums import VideoStatus
+from src.repositories import moderation_log_repository
 from src.services import video_service
 
 
@@ -103,7 +105,7 @@ class TestFlagVideo:
     """Tests for flag_video service function."""
 
     async def test_flag_video_updates_status_to_spam(self, ensure_migrations, clean_db):
-        """Flag video as spam updates status correctly."""
+        """Flag video as spam updates status correctly and creates moderation log."""
         async with get_connection() as conn:
             await video_service.add_video(conn, video_id=6001)
             await video_service.get_video_for_moderator(conn, "alice")
@@ -113,10 +115,18 @@ class TestFlagVideo:
         assert result["status"] == VideoStatus.SPAM.value
         assert result["assigned_to"] is None
 
+        # Verify moderation log was created
+        async with get_connection() as conn:
+            logs = await moderation_log_repository.get_logs_by_video_id(conn, 6001)
+        assert len(logs) == 1
+        assert logs[0]["video_id"] == 6001
+        assert logs[0]["status"] == VideoStatus.SPAM.value
+        assert logs[0]["moderator"] == "alice"
+
     async def test_flag_video_updates_status_to_not_spam(
         self, ensure_migrations, clean_db
     ):
-        """Flag video as not spam updates status correctly."""
+        """Flag video as not spam updates status correctly and creates moderation log."""
         async with get_connection() as conn:
             await video_service.add_video(conn, video_id=6002)
             await video_service.get_video_for_moderator(conn, "bob")
@@ -124,6 +134,14 @@ class TestFlagVideo:
 
         assert result["video_id"] == 6002
         assert result["status"] == VideoStatus.NOT_SPAM.value
+
+        # Verify moderation log was created
+        async with get_connection() as conn:
+            logs = await moderation_log_repository.get_logs_by_video_id(conn, 6002)
+        assert len(logs) == 1
+        assert logs[0]["video_id"] == 6002
+        assert logs[0]["status"] == VideoStatus.NOT_SPAM.value
+        assert logs[0]["moderator"] == "bob"
 
     async def test_flag_video_nonexistent_raises_not_found(
         self, ensure_migrations, clean_db
@@ -162,11 +180,14 @@ class TestFlagVideo:
     async def test_flag_video_already_moderated_raises_error(
         self, ensure_migrations, clean_db
     ):
-        """Flag already moderated video raises VideoNotAssignedError."""
+        """Flag already moderated video raises VideoAlreadyModeratedError."""
         async with get_connection() as conn:
             await video_service.add_video(conn, video_id=6005)
             await video_service.get_video_for_moderator(conn, "alice")
             await video_service.flag_video(conn, 6005, "spam", "alice")
 
-            with pytest.raises(VideoNotAssignedError):
+            with pytest.raises(VideoAlreadyModeratedError) as exc_info:
                 await video_service.flag_video(conn, 6005, "not spam", "alice")
+
+        assert exc_info.value.video_id == 6005
+        assert exc_info.value.current_status == VideoStatus.SPAM.value
