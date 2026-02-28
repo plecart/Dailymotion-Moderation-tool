@@ -20,12 +20,15 @@ def get_moderator(authorization: str = Header(...)) -> str:
 
     Args:
         authorization: Base64-encoded moderator name from Authorization header
+            (required by FastAPI validation)
 
     Returns:
         Decoded moderator name as string
 
     Raises:
-        HTTPException: If authorization header is missing or invalid
+        HTTPException: If authorization header is invalid (returns 401).
+            Note: Missing header triggers FastAPI validation error (422) before
+            this function is called.
     """
     try:
         decoded = base64.b64decode(authorization).decode("utf-8")
