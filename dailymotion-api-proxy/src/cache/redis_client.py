@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 import redis.asyncio as redis
-import redis.exceptions
+from redis.exceptions import RedisError
 
 from src.config import settings
 
@@ -68,7 +68,7 @@ async def cache_get(key: str) -> str | None:
         else:
             logger.debug("Cache miss for key: %s", key)
         return value
-    except (redis.exceptions.RedisError, RuntimeError) as exc:
+    except (RedisError, RuntimeError) as exc:
         logger.warning("Redis error reading cache key '%s': %s", key, exc)
         return None
 
@@ -90,7 +90,7 @@ async def cache_set(key: str, value: Any, ttl: int | None = None) -> None:
             ttl = settings.cache_ttl_seconds
         await client.set(key, value, ex=ttl)
         logger.debug("Cached key: %s with TTL: %d", key, ttl)
-    except (redis.exceptions.RedisError, RuntimeError) as exc:
+    except (RedisError, RuntimeError) as exc:
         logger.warning(
             "Failed to cache key '%s' with TTL %d due to Redis error: %s",
             key,
