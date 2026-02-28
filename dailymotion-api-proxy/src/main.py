@@ -16,12 +16,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Manage app lifespan: startup Redis and HTTP client, shutdown cleanup."""
     logger.info("Dailymotion API Proxy starting")
-    await create_redis_client()
-    await create_http_client()
-    yield
-    await close_http_client()
-    await close_redis_client()
-    logger.info("Dailymotion API Proxy shutting down")
+    try:
+        await create_redis_client()
+        await create_http_client()
+        yield
+    finally:
+        logger.info("Dailymotion API Proxy shutting down")
+        await close_http_client()
+        await close_redis_client()
 
 
 app = FastAPI(
