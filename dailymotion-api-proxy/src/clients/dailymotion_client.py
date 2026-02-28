@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 _http_client: httpx.AsyncClient | None = None
 
+# Fields to request from Dailymotion API
+DAILYMOTION_VIDEO_FIELDS = "title,channel,owner,filmstrip_60_url,embed_url"
+
 
 async def create_http_client() -> httpx.AsyncClient:
     """Create and return HTTP async client.
@@ -63,8 +66,9 @@ async def fetch_video_info(video_id: str) -> dict:
         httpx.RequestError: If request fails
     """
     client = get_http_client()
-    fields = "title,channel,owner,filmstrip_60_url,embed_url"
-    response = await client.get(f"/video/{video_id}", params={"fields": fields})
+    response = await client.get(
+        f"/video/{video_id}", params={"fields": DAILYMOTION_VIDEO_FIELDS}
+    )
     response.raise_for_status()
     logger.info("Fetched video info for %s from Dailymotion API", video_id)
     return response.json()

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 from httpx import AsyncClient
 
+from src.clients.dailymotion_client import DAILYMOTION_VIDEO_FIELDS
 from src.config import settings
 from src.services.video_service import _get_cache_key
 
@@ -49,6 +50,11 @@ class TestGetVideoInfoEndpoint:
         assert data["title"] == "Test Video"
         assert data["channel"] == "test"
         assert data["owner"] == "test_owner"
+        # Verify API is called with fixed video ID, not requested video_id (per spec)
+        fixed_video_id = settings.dailymotion_fixed_video_id
+        mock_http_client.get.assert_called_once_with(
+            f"/video/{fixed_video_id}", params={"fields": DAILYMOTION_VIDEO_FIELDS}
+        )
 
     async def test_cached_response_does_not_call_api(
         self, client: AsyncClient, mock_redis, mock_http_client
