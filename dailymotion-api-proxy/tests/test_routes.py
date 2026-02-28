@@ -6,6 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 from httpx import AsyncClient
 
+from src.config import settings
+from src.services.video_service import _get_cache_key
+
 
 class TestGetVideoInfoEndpoint:
     """Tests for GET /get_video_info/{video_id} endpoint."""
@@ -61,7 +64,8 @@ class TestGetVideoInfoEndpoint:
             }
         )
         # Cache key is based on fixed video ID, not requested video_id
-        await mock_redis.set("video_info:x2m8jpp", cached_data)
+        cache_key = _get_cache_key(settings.dailymotion_fixed_video_id)
+        await mock_redis.set(cache_key, cached_data)
 
         response = await client.get("/get_video_info/789")
 

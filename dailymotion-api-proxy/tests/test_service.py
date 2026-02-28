@@ -1,5 +1,6 @@
 """Tests for video service."""
 
+from src.config import settings
 from src.services.video_service import _get_cache_key, _is_video_id_404
 
 
@@ -35,5 +36,6 @@ class TestCacheKey:
 
     def test_cache_key_accepts_string_video_id(self):
         """Cache key generation works with string video IDs."""
-        key = _get_cache_key("x2m8jpp")
-        assert key == "video_info:x2m8jpp"
+        fixed_video_id = settings.dailymotion_fixed_video_id
+        key = _get_cache_key(fixed_video_id)
+        assert key == f"video_info:{fixed_video_id}"
