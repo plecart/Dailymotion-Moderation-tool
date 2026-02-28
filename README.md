@@ -109,6 +109,64 @@ curl http://localhost:8002/get_video_info/123456
 curl http://localhost:8002/get_video_info/1404
 ```
 
+## Testing Multi-Moderator Scenario
+
+This section demonstrates the multi-moderator behavior as per specification.
+
+### Setup: Add multiple videos
+
+```bash
+curl -X POST http://localhost:8001/add_video -H "Content-Type: application/json" -d '{"video_id": 1001}'
+curl -X POST http://localhost:8001/add_video -H "Content-Type: application/json" -d '{"video_id": 1002}'
+```
+
+### Test 1: Same moderator gets same video
+
+```bash
+# Moderator: john.doe (base64: am9obi5kb2U=)
+curl http://localhost:8001/get_video -H "Authorization: am9obi5kb2U="
+# Returns: {"video_id": 1001}
+
+# Same moderator, same request -> same video
+curl http://localhost:8001/get_video -H "Authorization: am9obi5kb2U="
+# Returns: {"video_id": 1001}
+```
+
+### Test 2: Different moderators get different videos
+
+```bash
+# Moderator: john.doe (base64: am9obi5kb2U=)
+curl http://localhost:8001/get_video -H "Authorization: am9obi5kb2U="
+# Returns: {"video_id": 1001}
+
+# Moderator: jane.smith (base64: amFuZS5zbWl0aA==)
+curl http://localhost:8001/get_video -H "Authorization: amFuZS5zbWl0aA=="
+# Returns: {"video_id": 1002}
+```
+
+### Test 3: After flagging, moderator gets next video
+
+```bash
+# john.doe flags video 1001
+curl -X POST http://localhost:8001/flag_video -H "Content-Type: application/json" -H "Authorization: am9obi5kb2U=" -d '{"video_id": 1001, "status": "spam"}'
+
+# john.doe now gets next pending video
+curl http://localhost:8001/get_video -H "Authorization: am9obi5kb2U="
+# Returns: next pending video (or 404 if none available)
+```
+
+### Test 4: Verify with stats and logs
+
+```bash
+# Check queue statistics
+curl http://localhost:8001/stats
+# Returns: {"pending": X, "spam": Y, "not_spam": Z}
+
+# Check moderation history for video 1001
+curl http://localhost:8001/log_video/1001
+# Returns: [{"date": "...", "status": "pending", "moderator": null}, {"date": "...", "status": "spam", "moderator": "john.doe"}]
+```
+
 ## Running Tests
 
 ### Run all tests (both services)
@@ -185,7 +243,7 @@ docker compose exec dailymotion-api-proxy python -m pytest -v
 - **Framework**: FastAPI
 - **Cache**: Redis 7 with configurable TTL (default: 300s)
 - **HTTP Client**: httpx async client
-- **Fixed Video**: Always proxies video `x2m8jpp` per specification
+- **Fixed Video**: Proxies a fixed video ID (default: `x2m8jpp`, configurable via `DAILYMOTION_FIXED_VIDEO_ID`)
 
 ## Environment Variables
 
@@ -195,6 +253,7 @@ docker compose exec dailymotion-api-proxy python -m pytest -v
 | REDIS_URL | dailymotion-api-proxy | redis://redis:6379 | Redis connection string |
 | DAILYMOTION_API_BASE_URL | dailymotion-api-proxy | https://api.dailymotion.com | Dailymotion API URL |
 | CACHE_TTL_SECONDS | dailymotion-api-proxy | 300 | Cache TTL in seconds |
+| DAILYMOTION_FIXED_VIDEO_ID | dailymotion-api-proxy | x2m8jpp | Fixed video ID to fetch |
 
 ## Stopping Services
 
