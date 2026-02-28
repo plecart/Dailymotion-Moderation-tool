@@ -60,7 +60,8 @@ class TestGetVideoInfoEndpoint:
                 "embed_url": "http://example.com/cached",
             }
         )
-        await mock_redis.set("video_info:789", cached_data)
+        # Cache key is based on fixed video ID, not requested video_id
+        await mock_redis.set("video_info:x2m8jpp", cached_data)
 
         response = await client.get("/get_video_info/789")
 

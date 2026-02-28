@@ -32,3 +32,8 @@ class TestCacheKey:
     def test_cache_key_different_for_different_ids(self):
         """Different video IDs produce different cache keys."""
         assert _get_cache_key(123) != _get_cache_key(456)
+
+    def test_cache_key_accepts_string_video_id(self):
+        """Cache key generation works with string video IDs."""
+        key = _get_cache_key("x2m8jpp")
+        assert key == "video_info:x2m8jpp"

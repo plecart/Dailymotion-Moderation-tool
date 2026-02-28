@@ -27,11 +27,11 @@ def _is_video_id_404(video_id: int) -> bool:
     return str(video_id).endswith("404")
 
 
-def _get_cache_key(video_id: int) -> str:
+def _get_cache_key(video_id: int | str) -> str:
     """Generate cache key for video info.
 
     Args:
-        video_id: Video identifier
+        video_id: Video identifier (int or str)
 
     Returns:
         Cache key string
@@ -65,7 +65,10 @@ async def get_video_info(video_id: int) -> dict:
         logger.info("Video %d matches 404 rule", video_id)
         raise VideoNotFoundError(video_id)
 
-    cache_key = _get_cache_key(video_id)
+    # Use fixed video ID for cache key since we always fetch the same video
+    # This avoids duplicate cache entries with identical data
+    fixed_video_id = settings.dailymotion_fixed_video_id
+    cache_key = _get_cache_key(fixed_video_id)
     cached = await cache_get(cache_key)
     if cached is not None:
         try:
@@ -79,7 +82,7 @@ async def get_video_info(video_id: int) -> dict:
             # Continue to fetch from API as if cache miss
 
     try:
-        data = await fetch_video_info(settings.dailymotion_fixed_video_id)
+        data = await fetch_video_info(fixed_video_id)
     except httpx.HTTPStatusError as e:
         logger.error("Dailymotion API error: %s", e)
         if e.response.status_code == 404:
