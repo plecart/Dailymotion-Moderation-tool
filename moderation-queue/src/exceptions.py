@@ -15,3 +15,10 @@ class VideoNotFoundError(Exception):
     def __init__(self, video_id: int):
         self.video_id = video_id
         super().__init__(f"Video {video_id} not found")
+
+
+class NoVideoAvailableError(Exception):
+    """Raised when no video is available for moderation."""
+
+    def __init__(self):
+        super().__init__("No video available for moderation")
