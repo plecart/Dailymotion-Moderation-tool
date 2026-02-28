@@ -113,7 +113,7 @@ async def get_video_info(video_id: int) -> dict:
     try:
         data = await fetch_video_info(fixed_video_id)
     except (httpx.HTTPStatusError, httpx.RequestError, RuntimeError) as e:
-        raise _handle_api_error(e, video_id)
+        raise _handle_api_error(e, video_id) from e
 
     await cache_set(cache_key, json.dumps(data))
     logger.info("Fetched and cached video info for %d", video_id)
