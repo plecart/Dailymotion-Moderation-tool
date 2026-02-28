@@ -160,11 +160,11 @@ curl http://localhost:8001/get_video -H "Authorization: am9obi5kb2U="
 ```bash
 # Check queue statistics
 curl http://localhost:8001/stats
-# Returns: {"pending": X, "spam": Y, "not_spam": Z}
+# Returns: {"total_pending_videos": 1, "total_spam_videos": 1, "total_not_spam_videos": 0}
 
 # Check moderation history for video 1001
 curl http://localhost:8001/log_video/1001
-# Returns: [{"date": "...", "status": "pending", "moderator": null}, {"date": "...", "status": "spam", "moderator": "john.doe"}]
+# Returns: [{"date": "2026-02-28T18:43:02.131404", "status": "spam", "moderator": "john.doe"}]
 ```
 
 ## Running Tests
