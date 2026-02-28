@@ -45,6 +45,7 @@ services:
         condition: service_healthy
     volumes:
       - ./moderation-queue/src:/app/src
+      - ./moderation-queue/tests:/app/tests
     healthcheck: *app-healthcheck
 
   dailymotion-api-proxy:
@@ -63,6 +64,7 @@ services:
         condition: service_healthy
     volumes:
       - ./dailymotion-api-proxy/src:/app/src
+      - ./dailymotion-api-proxy/tests:/app/tests
     healthcheck: *app-healthcheck
 
 volumes:
