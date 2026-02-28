@@ -3,7 +3,12 @@
 import pytest
 
 from src.database.connection import get_connection
-from src.exceptions import NoVideoAvailableError, VideoAlreadyExistsError
+from src.exceptions import (
+    NoVideoAvailableError,
+    VideoAlreadyExistsError,
+    VideoNotAssignedError,
+    VideoNotFoundError,
+)
 from src.models.enums import VideoStatus
 from src.services import video_service
 
@@ -92,3 +97,76 @@ class TestGetVideoForModerator:
 
             with pytest.raises(NoVideoAvailableError):
                 await video_service.get_video_for_moderator(conn, "bob")
+
+
+class TestFlagVideo:
+    """Tests for flag_video service function."""
+
+    async def test_flag_video_updates_status_to_spam(self, ensure_migrations, clean_db):
+        """Flag video as spam updates status correctly."""
+        async with get_connection() as conn:
+            await video_service.add_video(conn, video_id=6001)
+            await video_service.get_video_for_moderator(conn, "alice")
+            result = await video_service.flag_video(conn, 6001, "spam", "alice")
+
+        assert result["video_id"] == 6001
+        assert result["status"] == VideoStatus.SPAM.value
+        assert result["assigned_to"] is None
+
+    async def test_flag_video_updates_status_to_not_spam(
+        self, ensure_migrations, clean_db
+    ):
+        """Flag video as not spam updates status correctly."""
+        async with get_connection() as conn:
+            await video_service.add_video(conn, video_id=6002)
+            await video_service.get_video_for_moderator(conn, "bob")
+            result = await video_service.flag_video(conn, 6002, "not spam", "bob")
+
+        assert result["video_id"] == 6002
+        assert result["status"] == VideoStatus.NOT_SPAM.value
+
+    async def test_flag_video_nonexistent_raises_not_found(
+        self, ensure_migrations, clean_db
+    ):
+        """Flag non-existent video raises VideoNotFoundError."""
+        async with get_connection() as conn:
+            with pytest.raises(VideoNotFoundError) as exc_info:
+                await video_service.flag_video(conn, 9999, "spam", "alice")
+
+        assert exc_info.value.video_id == 9999
+
+    async def test_flag_video_not_assigned_raises_error(
+        self, ensure_migrations, clean_db
+    ):
+        """Flag video assigned to another moderator raises VideoNotAssignedError."""
+        async with get_connection() as conn:
+            await video_service.add_video(conn, video_id=6003)
+            await video_service.get_video_for_moderator(conn, "alice")
+
+            with pytest.raises(VideoNotAssignedError) as exc_info:
+                await video_service.flag_video(conn, 6003, "spam", "bob")
+
+        assert exc_info.value.video_id == 6003
+        assert exc_info.value.moderator == "bob"
+
+    async def test_flag_video_unassigned_raises_error(
+        self, ensure_migrations, clean_db
+    ):
+        """Flag unassigned video raises VideoNotAssignedError."""
+        async with get_connection() as conn:
+            await video_service.add_video(conn, video_id=6004)
+
+            with pytest.raises(VideoNotAssignedError):
+                await video_service.flag_video(conn, 6004, "spam", "alice")
+
+    async def test_flag_video_already_moderated_raises_error(
+        self, ensure_migrations, clean_db
+    ):
+        """Flag already moderated video raises VideoNotAssignedError."""
+        async with get_connection() as conn:
+            await video_service.add_video(conn, video_id=6005)
+            await video_service.get_video_for_moderator(conn, "alice")
+            await video_service.flag_video(conn, 6005, "spam", "alice")
+
+            with pytest.raises(VideoNotAssignedError):
+                await video_service.flag_video(conn, 6005, "not spam", "alice")

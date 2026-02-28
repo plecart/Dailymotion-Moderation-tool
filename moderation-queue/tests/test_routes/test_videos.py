@@ -133,3 +133,108 @@ class TestGetVideoEndpoint:
         )
 
         assert response.status_code == 404
+
+
+class TestFlagVideoEndpoint:
+    """Tests for POST /flag_video endpoint."""
+
+    async def test_missing_auth_header_returns_422(self, client: AsyncClient):
+        """Request without Authorization header returns 422."""
+        response = await client.post(
+            "/flag_video", json={"video_id": 1, "status": "spam"}
+        )
+
+        assert response.status_code == 422
+
+    async def test_invalid_status_returns_422(self, client: AsyncClient, clean_db):
+        """Invalid status value returns 422 validation error."""
+        response = await client.post(
+            "/flag_video",
+            json={"video_id": 1, "status": "invalid"},
+            headers={"Authorization": encode_moderator("alice")},
+        )
+
+        assert response.status_code == 422
+
+    async def test_nonexistent_video_returns_404(self, client: AsyncClient, clean_db):
+        """Flag non-existent video returns 404."""
+        response = await client.post(
+            "/flag_video",
+            json={"video_id": 9999, "status": "spam"},
+            headers={"Authorization": encode_moderator("alice")},
+        )
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+    async def test_video_not_assigned_returns_403(self, client: AsyncClient, clean_db):
+        """Flag video not assigned to moderator returns 403."""
+        await client.post("/add_video", json={"video_id": 8001})
+        await client.get(
+            "/get_video", headers={"Authorization": encode_moderator("alice")}
+        )
+
+        response = await client.post(
+            "/flag_video",
+            json={"video_id": 8001, "status": "spam"},
+            headers={"Authorization": encode_moderator("bob")},
+        )
+
+        assert response.status_code == 403
+        assert "not assigned to you" in response.json()["detail"]
+
+    async def test_flag_spam_returns_200(self, client: AsyncClient, clean_db):
+        """Flag video as spam returns 200 with updated status."""
+        await client.post("/add_video", json={"video_id": 8002})
+        await client.get(
+            "/get_video", headers={"Authorization": encode_moderator("alice")}
+        )
+
+        response = await client.post(
+            "/flag_video",
+            json={"video_id": 8002, "status": "spam"},
+            headers={"Authorization": encode_moderator("alice")},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["video_id"] == 8002
+        assert response.json()["status"] == "spam"
+
+    async def test_flag_not_spam_returns_200(self, client: AsyncClient, clean_db):
+        """Flag video as not spam returns 200 with updated status."""
+        await client.post("/add_video", json={"video_id": 8003})
+        await client.get(
+            "/get_video", headers={"Authorization": encode_moderator("bob")}
+        )
+
+        response = await client.post(
+            "/flag_video",
+            json={"video_id": 8003, "status": "not spam"},
+            headers={"Authorization": encode_moderator("bob")},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "not spam"
+
+    async def test_flag_frees_moderator_for_next_video(
+        self, client: AsyncClient, clean_db
+    ):
+        """After flagging, moderator can get next video."""
+        await client.post("/add_video", json={"video_id": 8004})
+        await client.post("/add_video", json={"video_id": 8005})
+
+        await client.get(
+            "/get_video", headers={"Authorization": encode_moderator("alice")}
+        )
+        await client.post(
+            "/flag_video",
+            json={"video_id": 8004, "status": "spam"},
+            headers={"Authorization": encode_moderator("alice")},
+        )
+
+        response = await client.get(
+            "/get_video", headers={"Authorization": encode_moderator("alice")}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["video_id"] == 8005
