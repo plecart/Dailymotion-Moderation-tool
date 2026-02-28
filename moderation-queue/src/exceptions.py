@@ -22,7 +22,7 @@ class NoVideoAvailableError(Exception):
 
     def __init__(self, moderator: str):
         self.moderator = moderator
-        super().__init__(f"No video available for moderation for moderator '{moderator}'")
+        super().__init__(f"No video available for moderator '{moderator}'")
 
 
 class VideoNotAssignedError(Exception):
