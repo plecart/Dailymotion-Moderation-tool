@@ -6,20 +6,17 @@ import logging
 import asyncpg
 from asyncpg import UniqueViolationError
 
+from src.config import settings
 from src.exceptions import NoVideoAvailableError, VideoAlreadyExistsError
 from src.repositories import video_repository
 
 logger = logging.getLogger(__name__)
 
-# Base key for moderator-scoped advisory locks (must fit int64)
-# Using a different namespace from migration locks to avoid conflicts
-_MODERATOR_LOCK_BASE_KEY = 0x6D6F645F6C6F636B  # "mod_lock" in hex
-
 
 def _get_moderator_lock_key(moderator: str) -> int:
     """Generate a unique advisory lock key for a moderator.
 
-    Uses MD5 hash of moderator name combined with base key to ensure
+    Uses MD5 hash of moderator name combined with base key from settings to ensure
     consistent, unique lock keys per moderator while avoiding conflicts
     with other advisory lock namespaces.
 
@@ -31,7 +28,7 @@ def _get_moderator_lock_key(moderator: str) -> int:
     """
     hash_bytes = hashlib.md5(moderator.encode()).digest()
     hash_part = int.from_bytes(hash_bytes[:4], byteorder="big", signed=False)
-    return _MODERATOR_LOCK_BASE_KEY ^ hash_part
+    return settings.moderator_lock_base_key ^ hash_part
 
 
 async def _get_video_with_moderator_lock(
@@ -67,9 +64,7 @@ async def _get_video_with_moderator_lock(
             return already_assigned
 
         # Assign new video if available
-        return await video_repository.get_next_pending_video_and_assign(
-            conn, moderator
-        )
+        return await video_repository.get_next_pending_video_and_assign(conn, moderator)
 
 
 async def add_video(conn: asyncpg.Connection, video_id: int) -> dict:
