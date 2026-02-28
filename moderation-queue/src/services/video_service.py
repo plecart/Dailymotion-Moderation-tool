@@ -13,29 +13,26 @@ from src.repositories import video_repository
 logger = logging.getLogger(__name__)
 
 
-def _get_moderator_lock_keys(moderator: str) -> tuple[int, int]:
-    """Generate unique advisory lock keys for a moderator.
+def _get_moderator_lock_key(moderator: str) -> int:
+    """Generate unique advisory lock key for a moderator.
 
     Uses SHA-256 hash of moderator name combined with base key from settings.
-    Returns two 64-bit keys for use with pg_advisory_xact_lock(key1, key2)
-    to reduce collision risk and ensure FIPS compatibility.
-    Keys are guaranteed to fit PostgreSQL's signed bigint range (-2^63 to 2^63-1).
+    Returns a 64-bit key for use with pg_advisory_xact_lock(bigint) to ensure
+    FIPS compatibility and reduce collision risk.
+    Key is guaranteed to fit PostgreSQL's signed bigint range (-2^63 to 2^63-1).
 
     Args:
         moderator: Moderator name
 
     Returns:
-        Tuple of two integer lock keys (each fits in PostgreSQL signed bigint)
+        Integer lock key (fits in PostgreSQL signed bigint)
     """
     hash_bytes = hashlib.sha256(moderator.encode()).digest()
-    # Use first 8 bytes for key1, next 8 bytes for key2
-    # Use signed=True to ensure values fit PostgreSQL's signed bigint range
-    key1_part = int.from_bytes(hash_bytes[:8], byteorder="big", signed=True)
-    key2_part = int.from_bytes(hash_bytes[8:16], byteorder="big", signed=True)
+    # Use first 8 bytes for the lock key
+    # Use signed=True to ensure value fits PostgreSQL's signed bigint range
+    key_part = int.from_bytes(hash_bytes[:8], byteorder="big", signed=True)
     # Combine with base key to avoid conflicts with other namespaces
-    key1 = settings.moderator_lock_base_key ^ key1_part
-    key2 = key2_part
-    return (key1, key2)
+    return settings.moderator_lock_base_key ^ key_part
 
 
 async def _get_video_with_moderator_lock(
@@ -53,11 +50,10 @@ async def _get_video_with_moderator_lock(
     Returns:
         Dict with video data or None if no video available
     """
-    lock_key1, lock_key2 = _get_moderator_lock_keys(moderator)
+    lock_key = _get_moderator_lock_key(moderator)
     async with conn.transaction():
-        # Acquire moderator-scoped advisory lock using 2-arg form for better collision resistance
-        # (released automatically at end of transaction)
-        await conn.execute("SELECT pg_advisory_xact_lock($1, $2)", lock_key1, lock_key2)
+        # Acquire moderator-scoped advisory lock (released automatically at end of transaction)
+        await conn.execute("SELECT pg_advisory_xact_lock($1)", lock_key)
 
         # Check for existing assignment first
         already_assigned = await video_repository.get_video_assigned_to_moderator(
