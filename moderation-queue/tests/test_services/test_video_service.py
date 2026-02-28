@@ -11,7 +11,6 @@ from src.services import video_service
 class TestAddVideo:
     """Tests for add_video service function."""
 
-    @pytest.mark.asyncio
     async def test_add_video_valid_id_creates_pending_video(self, ensure_migrations, clean_db):
         """Test that add_video creates a video with pending status."""
         async with get_connection() as conn:
@@ -21,7 +20,6 @@ class TestAddVideo:
         assert result["status"] == VideoStatus.PENDING.value
         assert result["assigned_to"] is None
 
-    @pytest.mark.asyncio
     async def test_add_video_duplicate_raises_already_exists(self, ensure_migrations, clean_db):
         """Test that adding a duplicate video raises VideoAlreadyExistsError."""
         async with get_connection() as conn:
