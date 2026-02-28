@@ -41,14 +41,19 @@ async def mock_http_client():
 async def client(mock_redis, mock_http_client) -> AsyncGenerator[AsyncClient, None]:
     """Create test client with mocked dependencies.
 
-    Patches create_redis_client and create_http_client with AsyncMock to prevent
-    lifespan from overwriting mocked clients if lifespan executes. Uses AsyncMock
-    explicitly to ensure awaitable return values.
+    Patches create_redis_client and create_http_client in src.main (where they are
+    imported) with AsyncMock to prevent lifespan from overwriting mocked clients if
+    lifespan executes. Uses AsyncMock explicitly to ensure awaitable return values.
+    Also patches close functions to prevent cleanup issues.
     """
     with patch(
-        "src.cache.redis_client.create_redis_client", new=AsyncMock()
+        "src.main.create_redis_client", new=AsyncMock()
     ), patch(
-        "src.clients.dailymotion_client.create_http_client", new=AsyncMock()
+        "src.main.create_http_client", new=AsyncMock()
+    ), patch(
+        "src.main.close_redis_client", new=AsyncMock()
+    ), patch(
+        "src.main.close_http_client", new=AsyncMock()
     ):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
