@@ -201,12 +201,12 @@ async def _handle_concurrent_flag_failure(
         RuntimeError: If update failed despite all conditions being met (unexpected state)
     """
     current_video = await video_repository.get_video_by_video_id(conn, video_id)
-    
+
     # Check conditions - raises exception if conditions not met (expected case)
     _check_video_flagging_conditions(
         current_video, video_id, moderator, context="Concurrent flag attempt"
     )
-    
+
     # If we reach here, conditions are met but update failed - unexpected state
     # This indicates a system issue (e.g., database inconsistency, connection problem)
     # and should surface as 5xx error, not 4xx authorization error
