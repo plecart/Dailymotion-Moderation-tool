@@ -169,29 +169,33 @@ curl http://localhost:8001/log_video/1001
 
 ## Running Tests
 
-### Run all tests (both services)
+### Run tests in Docker (recommended)
 
 ```bash
-# Moderation Queue tests (requires PostgreSQL running)
-docker compose up -d postgres
-cd moderation-queue
-pip install -r requirements.txt
-python -m pytest -v
+# Start services first
+docker compose up -d
 
-# Dailymotion API Proxy tests (mocked, no dependencies)
-cd dailymotion-api-proxy
-pip install -r requirements.txt
-python -m pytest -v
-```
-
-### Run tests in Docker
-
-```bash
 # Moderation Queue
 docker compose exec moderation-queue python -m pytest -v
 
 # Dailymotion API Proxy
 docker compose exec dailymotion-api-proxy python -m pytest -v
+```
+
+### Run tests locally
+
+```bash
+# Moderation Queue (requires a running PostgreSQL instance)
+# Tests use a real database connection (not mocked) — defaults to localhost:5432
+docker compose up -d postgres
+cd moderation-queue
+pip install -r requirements.txt
+python -m pytest -v
+
+# Dailymotion API Proxy (fully mocked, no external dependencies)
+cd dailymotion-api-proxy
+pip install -r requirements.txt
+python -m pytest -v
 ```
 
 ## Project Structure
@@ -200,6 +204,10 @@ docker compose exec dailymotion-api-proxy python -m pytest -v
 .
 ├── docker-compose.yml          # Service orchestration
 ├── .env                        # Environment variables
+├── README.md                   # This file
+├── document/
+│   ├── ARCHITECTURE.md         # Architecture schema
+│   └── moderation_tool.md      # Technical test specification
 ├── moderation-queue/           # Moderation Queue service
 │   ├── Dockerfile
 │   ├── requirements.txt
@@ -249,8 +257,13 @@ docker compose exec dailymotion-api-proxy python -m pytest -v
 
 | Variable | Service | Default | Description |
 |----------|---------|---------|-------------|
+| POSTGRES_USER | postgres (Docker) | - | PostgreSQL user |
+| POSTGRES_PASSWORD | postgres (Docker) | - | PostgreSQL password |
+| POSTGRES_DB | postgres (Docker) | - | PostgreSQL database name |
 | DATABASE_URL | moderation-queue | - | PostgreSQL connection string |
-| REDIS_URL | dailymotion-api-proxy | redis://redis:6379 | Redis connection string |
+| DATABASE_POOL_MIN_SIZE | moderation-queue | 2 | Minimum connections in pool |
+| DATABASE_POOL_MAX_SIZE | moderation-queue | 10 | Maximum connections in pool |
+| REDIS_URL | dailymotion-api-proxy | redis://localhost:6379 | Redis connection string |
 | DAILYMOTION_API_BASE_URL | dailymotion-api-proxy | https://api.dailymotion.com | Dailymotion API URL |
 | CACHE_TTL_SECONDS | dailymotion-api-proxy | 300 | Cache TTL in seconds |
 | DAILYMOTION_FIXED_VIDEO_ID | dailymotion-api-proxy | x2m8jpp (x9zxn76 in committed .env) | Fixed video ID to fetch |
